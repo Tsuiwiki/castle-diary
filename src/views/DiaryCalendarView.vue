@@ -12,7 +12,7 @@
         <span class="cal-sum">写了 {{ writtenDays }} 天<template v-if="photoCount"> · {{ photoCount }} 张照片</template></span>
       </div>
       <div class="cal-castle" :title="`城堡：月龄生日加一层，词添砖、里程碑插旗、读完的书点灯、去过的地方种树；随季节换装`">
-        <CastleSvg :width="170" />
+        <CastleSvg :width="170" :date="`${ym}-15`" />
         <span class="cal-season">{{ seasonName }} · 本月写了 {{ writtenDays }} 天</span>
       </div>
       <button class="mini-btn ghost" :disabled="isCurrentMonth" @click="shift(1)">下个月<Icon name="chevron-right" :size="14" /></button>
@@ -69,7 +69,7 @@ function shift(n) {
 const index = computed(() => monthIndex(ym.value))
 const writtenDays = computed(() => Object.keys(index.value).length)
 // 季节名（城堡随季节换装；写作天数用文字表达，不再压城堡的颜色）
-const seasonName = computed(() => seasonOf(today) + '天')
+const seasonName = computed(() => seasonOf(`${ym.value}-15`) + '天')
 const photoCount = computed(() => store.photos.filter(p => p.date.slice(0, 7) === ym.value).length)
 
 const cells = computed(() => {

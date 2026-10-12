@@ -143,7 +143,7 @@ function onPick(e) {
 }
 function onDrop(e) {
   dragOver.value = false
-  handleFiles([...e.dataTransfer?.files])
+  handleFiles([...(e.dataTransfer?.files || [])])
 }
 
 function open(p) { current.value = p }

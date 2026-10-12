@@ -95,7 +95,7 @@
     <div class="card-title">
       <span class="ct-left"><Icon name="trash" :size="16" />危险区</span>
     </div>
-    <button class="danger-btn" @click="doReset">清空本机全部数据（书架 + 词库 + 封面）</button>
+    <button class="danger-btn" @click="doReset">清空本机全部数据（日记、书房、相册、健康等，全部）</button>
   </div>
 </template>
 
@@ -150,11 +150,11 @@ async function openAutoBackup() {
 
 async function doExport() {
   const data = await exportBackup()
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
   markExported()
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = `castle-books-${todayStr().replaceAll('-', '')}.json`
+  a.download = `城堡日记-备份-${todayStr().replaceAll('-', '')}.json`
   a.click()
   URL.revokeObjectURL(a.href)
 }
@@ -167,8 +167,8 @@ async function onImport(e) {
     const data = JSON.parse(await file.text())
     const isDiary = data?.app !== 'castle-books'
     const tip = isDiary
-      ? '检测到「城堡日记」备份，将只导入书房与词库，并覆盖当前数据。继续？'
-      : '导入会覆盖当前全部数据（书架 + 词库 + 封面）。继续？'
+      ? '检测到手机版「城堡日记」旧备份，将导入书房、词库、药箱、健康、餐桌、玩具、里程碑、出行、相册与成员，并覆盖当前全部数据。继续？'
+      : '导入会覆盖当前全部数据（日记、书房、词库、饮食、游戏、玩具、足迹、相册、健康、药箱、生病记、成员等）。当前数据会先暂存一份，导入失败会尽量恢复。继续？'
     if (!confirm(tip)) return
     await importBackup(data)
     alert('导入完成')

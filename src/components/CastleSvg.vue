@@ -80,8 +80,9 @@ import { computed } from 'vue'
 import { store, babyMonths, babyDayOfLife, todayStr } from '../store.js'
 import { seasonOf } from '../utils/solarTerms.js'
 
-defineProps({
+const props = defineProps({
   width: { type: Number, default: 300 },
+  date: { type: String, default: '' }, // 不传 = 今天
 })
 
 // 季节皮肤
@@ -91,7 +92,7 @@ const SEASONS = {
   秋: { sky: '#fdf0d8', ground: '#d8c07e', water: '#a9cdea', bushes: ['#d99a4e', '#c9825b'], bushHi: ['#e3aa62', '#d4906a'] },
   冬: { sky: '#eef4fb', ground: '#e8eef5', water: '#b8cfe6', bushes: ['#9db3c4', '#8ba3b5'], bushHi: ['#adc0d0', '#9bb2c3'] },
 }
-const season = computed(() => seasonOf(todayStr()))
+const season = computed(() => seasonOf(props.date || todayStr()))
 const SP = computed(() => SEASONS[season.value])
 const bushColor = (i, hi) => (hi ? SP.value.bushHi : SP.value.bushes)[i % 2]
 

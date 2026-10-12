@@ -116,6 +116,12 @@ function toPlayable(url) {
   for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k)
   src = URL.createObjectURL(new Blob([bytes], { type: mime }))
   blobUrls.set(url, src)
+  // 最多留 50 个，最旧的释放掉，长时间使用内存不膨胀
+  if (blobUrls.size > 50) {
+    const oldest = blobUrls.keys().next().value
+    URL.revokeObjectURL(blobUrls.get(oldest))
+    blobUrls.delete(oldest)
+  }
   return src
 }
 

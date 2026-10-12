@@ -57,8 +57,11 @@ export async function idbDelCover(id) {
   db.close()
 }
 
+// 清空媒体数据，但保留自动备份的文件夹句柄（id = 'backup-dir'，是 FileSystemDirectoryHandle，不能删）
 export async function idbClear() {
+  const keep = await idbGet('backup-dir').catch(() => null)
   const db = await open()
   await tx(db, 'readwrite', s => { s.clear() })
+  if (keep) await tx(db, 'readwrite', s => { s.put(keep) })
   db.close()
 }

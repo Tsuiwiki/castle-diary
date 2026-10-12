@@ -218,7 +218,7 @@
               {{ date === sickNow.start ? '这天开始不舒服' : `生病第 ${illnessDays(sickNow, date)} 天` }}：{{ sickNow.symptoms.join('、') || '不舒服' }}
               <a class="pn-link" @click="$emit('go', 'illness')">看整张生病记 →</a>
             </div>
-            <div v-if="sickNow.end && sickNow.end < today" class="sk-ended">
+            <div v-if="sickNow.end && sickNow.end < today.value" class="sk-ended">
               这次已经在 {{ sickNow.end }} 好了。<a @click="reopenIllness(sickNow.id)">其实还没好</a>
             </div>
             <div class="sk-row">
@@ -481,7 +481,7 @@ const QUESTIONS = [
 const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 // ---------- 日期 ----------
-const today = todayStr()
+const today = computed(() => todayStr())
 const date = computed(() => diaryDate.value)
 const isToday = computed(() => date.value === todayStr())
 const p2 = n => String(n).padStart(2, '0')
@@ -913,7 +913,7 @@ function removeToken(tk) {
   if (!confirm(`删掉日记里的「${label}」？对应的记录会一起删除`)) return
   const d = tk.del
   if (d.coll === 'meals') removeMeal(d.id)
-  else if (d.coll === 'reads') removeRead(d.bookId, d.time)
+  else if (d.coll === 'reads') removeRead(d.bookId, d.id || d.time)
   else if (d.coll === 'words') removeWord(d.id)
   else if (d.coll === 'trips') removeTrip(d.id)
   else if (d.coll === 'plays') removePlay(d.gameId, d.playId)
@@ -1082,6 +1082,8 @@ onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
   flushText()
+  clearTimeout(toastTimer)
+  clearTimeout(stampTimer)
   if (rec.state === 'recording') discardRec()
   stopAudio()
 })

@@ -8,7 +8,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.23.0'
+export const APP_VERSION = '0.23.1'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -16,6 +16,11 @@ export const BOOK_CATEGORIES = ['动物', '情感', '认知', '自然', '交通'
 
 // ---------- 工具 ----------
 const p2 = n => String(n).padStart(2, '0')
+// ISO 时间 → 本地 YYYY-MM-DD（比较"今天"用，避免 UTC 偏移误伤）
+export function localDateOf(iso) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`
+}
 
 export function todayStr() {
   const d = new Date()
@@ -148,7 +153,7 @@ export function persistNow() {
       lastPersistFailed = false
     }
   } catch (e) {
-    console.warn('[castle-books] 本地保存失败（存储空间不足？）', e)
+    console.warn('[castle-diary] 本地保存失败（存储空间不足？）', e)
     storageError.value = '刚才的记录没能保存到本机（浏览器存储空间不足）。请先到「设置 → 备份与迁移」导出备份。'
     lastPersistFailed = true
   }
@@ -232,7 +237,7 @@ async function loadLocal() {
     }
     if (store.settings.avatarId) store.settings.avatarUrl = map[store.settings.avatarId] || null
   } catch (e) {
-    console.warn('[castle-books] 读取本地图片失败', e)
+    console.warn('[castle-diary] 读取本地图片失败', e)
   }
   // 老数据补默认成员（爸爸妈妈）
   if (!store.members.length) {
@@ -296,7 +301,8 @@ export async function disableAutoBackup() {
 async function runAutoBackup(force = false) {
   if (!autoBackup.enabled || !backupDir || autoBackup.status !== 'on') return
   const today = todayStr()
-  if (!force && store.settings.autoBackupAt?.slice(0, 10) === today) return
+  const lastLocal = store.settings.autoBackupAt ? localDateOf(store.settings.autoBackupAt) : ''
+  if (!force && lastLocal === today) return
   try {
     const fh = await backupDir.getFileHandle('城堡日记-自动备份.json', { create: true })
     const w = await fh.createWritable()
@@ -322,7 +328,7 @@ async function init() {
   await initAutoBackup()
   // 申请把浏览器存储固定住（照片、录音都在里面，避免磁盘紧张时被浏览器清掉）
   navigator.storage?.persist?.().then(ok => {
-    if (!ok) console.warn('[castle-books] 浏览器拒绝了持久化存储申请，请记得定期导出备份')
+    if (!ok) console.warn('[castle-diary] 浏览器拒绝了持久化存储申请，请记得定期导出备份')
   }).catch(() => {})
   ready.value = true
 }
@@ -381,15 +387,15 @@ export async function setBookCover(bookId, dataUrl) {
 export function addRead(bookId, read) {
   const book = store.books.find(b => b.id === bookId)
   if (!book) return
-  book.reads.unshift(read)
+  book.reads.unshift({ id: uid(), ...read })
   saveLocal()
 }
 
-// 撤销一次阅读：按阅读时间删掉对应那条
-export function removeRead(bookId, time) {
+// 撤销一次阅读：优先按 id，老数据没有 id 就按时间
+export function removeRead(bookId, ref) {
   const book = store.books.find(b => b.id === bookId)
   if (!book) return
-  const idx = book.reads.findIndex(r => r.time === time)
+  const idx = book.reads.findIndex(r => (r.id || r.time) === ref)
   if (idx >= 0) { book.reads.splice(idx, 1); saveLocal() }
 }
 
@@ -1278,7 +1284,7 @@ export async function resetAll() {
 // 导出：完整 JSON，封面内嵌 base64，可直接导入另一台设备/浏览器
 export async function exportBackup() {
   return {
-    app: 'castle-books',
+    app: 'castle-books', // 存储/备份格式标识，不动（改了会孤儿化老数据与旧备份）
     version: 1,
     exportedAt: new Date().toISOString(),
     settings: (({ avatarUrl, ...s }) => s)(store.settings), // avatarUrl 是运行时缓存，不导出
@@ -1397,15 +1403,21 @@ export async function importBackup(data) {
     throw new Error('备份文件格式不对')
   }
 
-  localStorage.removeItem(LS_KEY)
-  await idbClear().catch(() => {})
+  // 事务化导入：当前数据先存进回滚键；新数据全部写完后才切换，中途失败可回滚
+  const rollback = localStorage.getItem(LS_KEY)
   const { covers = [], ...rest } = payload
-  for (const c of covers) {
-    if (c.dataUrl) await putMedia({ id: c.id, dataUrl: c.dataUrl }, '图片')
+  const words = (rest.words || []).map(w => ({ mastered: false, ...w })) // 词数据兜底补齐 mastered 字段
+  try {
+    await idbClear().catch(() => {})
+    for (const c of covers) {
+      if (c.dataUrl) await putMedia({ id: c.id, dataUrl: c.dataUrl }, '图片')
+    }
+    applyState({ ...rest, words })
+    persistNow() // 导入这种关键操作立即落盘，不走防抖
+  } catch (e) {
+    // 中途失败：回滚 localStorage，IndexedDB 里旧图还在原 id 下的概率很高，刷新后尽量恢复
+    if (rollback) localStorage.setItem(LS_KEY, rollback)
+    throw new Error('导入中断，已尽量恢复原数据，请刷新页面确认后再试')
   }
-  // 词数据兜底补齐 mastered 字段
-  const words = (rest.words || []).map(w => ({ mastered: false, ...w }))
-  applyState({ ...rest, words })
-  persistNow() // 导入这种关键操作立即落盘，不走防抖
   return { fromDiary: !!payload.__fromDiary }
 }

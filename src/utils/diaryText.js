@@ -80,7 +80,7 @@ export function dayLines(date) {
   }
   if (reads.length) {
     const toks = reads.map(r => hl(`《${r.b.title}》`, 'book', {
-      del: { coll: 'reads', bookId: r.b.id, time: r.latest.time },
+      del: { coll: 'reads', bookId: r.b.id, time: r.latest.time, id: r.latest.id },
       badge: r.total >= 10 && r.total % 10 === 0 ? '最爱书' : '',
       suffix: r.times > 1 ? `读了 ${r.times} 遍，累计第 ${r.total} 次` : `第 ${r.total} 次`,
     }))

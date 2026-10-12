@@ -93,7 +93,7 @@
           <div class="card-title">
             <span class="ct-left"><Icon name="clock" :size="16" />阅读历史</span>
           </div>
-          <div v-for="r in book.reads" :key="r.time" class="tl-item">
+          <div v-for="(r, ri) in book.reads" :key="r.id || (r.time + '-' + ri)" class="tl-item">
             <span class="tl-time">{{ r.time.slice(5, 10) }}</span>
             <span class="tl-icon"><Icon name="book-open" :size="18" /></span>
             <div class="tl-body">
