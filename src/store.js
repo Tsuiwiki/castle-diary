@@ -8,7 +8,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.23.1'
+export const APP_VERSION = '0.24.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -91,7 +91,8 @@ export const diaryDate = ref(todayStr())
 
 // 超过 14 天没备份时的提醒（日记页右栏显示）
 export function backupDaysAgo() {
-  const t = store.settings.lastExportAt
+  // 手动导出与自动备份都算数：取最近一次成功备份
+  const t = [store.settings.lastExportAt, store.settings.autoBackupAt].filter(Boolean).sort().pop()
   if (!t) return null // 从没备份过
   return Math.floor((Date.now() - new Date(t).getTime()) / 86400000)
 }
@@ -290,6 +291,7 @@ export async function resumeAutoBackup() {
   if (!backupDir) return
   const perm = await backupDir.requestPermission({ mode: 'readwrite' })
   autoBackup.status = perm === 'granted' ? 'on' : 'need-auth'
+  if (perm === 'granted') await runAutoBackup(true) // 重新授权后立刻补一次，不等明天
 }
 
 export async function disableAutoBackup() {

@@ -78,8 +78,14 @@
           </div>
           <div class="chip-row">
             <span class="chip chip-first" :class="{ sel: food.first }" @click="food.first = !food.first">⭐ 第一次吃</span>
-            <span v-for="t in MEAL_TAGS" :key="t" class="chip" :class="{ sel: food.tag === t }" @click="food.tag = food.tag === t ? '' : t">{{ t }}</span>
+            <span
+              v-for="t in MEAL_TAGS" :key="t" class="chip"
+              :class="{ sel: food.tag === t, disabled: t === '过敏' && food.picked.length > 1 }"
+              @click="t === '过敏' && food.picked.length > 1 ? showToast('过敏请一次只记一种食物，方便以后核对') : (food.tag = food.tag === t ? '' : t)"
+            >{{ t }}</span>
           </div>
+          <div v-if="food.picked.length > 1 && food.first" class="pn-hint" style="margin-top:4px">将标记第一次吃：{{ food.picked.join('、') }}</div>
+          <div v-if="food.tag === '过敏' && food.picked.length > 1" class="pn-hint" style="margin-top:4px;color:#c0392b">过敏一次只能记一种：先在食物列表里只留下它</div>
         </template>
 
         <!-- 读了 -->

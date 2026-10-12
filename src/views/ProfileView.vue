@@ -40,8 +40,8 @@
     <div class="stat-cell"><b>{{ totalReads }}</b><span>读书次数</span></div>
     <div class="stat-cell"><b>{{ store.photos.length }}</b><span>照片</span></div>
     <div class="stat-cell"><b>{{ placeCount }}</b><span>去过的地方</span></div>
-    <div class="stat-cell"><b>{{ store.games.length }}</b><span>玩过的游戏</span></div>
-    <div class="stat-cell"><b>{{ vaccineDone }}<small>/{{ VACCINE_SCHEDULE.length }}</small></b><span>疫苗</span></div>
+    <div class="stat-cell"><b>{{ gamesPlayed }}</b><span>玩过的游戏</span></div>
+    <div class="stat-cell"><b>{{ vaccineDone }}<small>/{{ VACCINE_SCHEDULE.length }}</small></b><span>疫苗{{ vaccineLegacy ? ` +${vaccineLegacy} 历史` : '' }}</span></div>
   </div>
 
   <!-- 里程碑速览 -->
@@ -73,8 +73,12 @@ const months = computed(() => babyMonths())
 const latest = computed(() => latestGrowth())
 const totalReads = computed(() => store.books.reduce((s, b) => s + (b.reads?.length || 0), 0))
 const masteredCount = computed(() => store.words.filter(w => w.mastered).length)
-const vaccineDone = computed(() => store.vaccines.length)
+// 只数当前 2026 版程序里存在的剂次；旧版程序留下的历史记录单独标注，不混进"已接种"数
+const VAC_KEYS = new Set(VACCINE_SCHEDULE.map(d => d.key))
+const vaccineDone = computed(() => store.vaccines.filter(v => VAC_KEYS.has(v.id)).length)
+const vaccineLegacy = computed(() => store.vaccines.filter(v => !VAC_KEYS.has(v.id)).length)
 const spokenCount = computed(() => store.words.filter(w => ['词语', '发音'].includes(w.kind)).length)
+const gamesPlayed = computed(() => store.games.filter(g => (g.plays || []).length).length)
 const placeCount = computed(() => new Set(store.trips.map(t => t.place)).size)
 const favBook = computed(() => [...store.books].sort((a, b) => (b.reads?.length || 0) - (a.reads?.length || 0))[0] || null)
 // 一年左右长高了多少：最新身高 vs 约一年前（10~14 个月前）最近的那次
@@ -107,7 +111,7 @@ const story = computed(() => {
     t('，现在身高 '); t(String(latest.value.height), true); t(' cm')
   }
   if (placeCount.value) { t('，去过 '); t(String(placeCount.value), true); t(' 个地方') }
-  if (store.games.length) { t('，和爸爸妈妈玩过 '); t(String(store.games.length), true); t(' 种游戏') }
+  if (gamesPlayed.value) { t('，和爸爸妈妈玩过 '); t(String(gamesPlayed.value), true); t(' 种游戏') }
   t('，疫苗打了 '); t(`${vaccineDone.value} / ${VACCINE_SCHEDULE.length}`, true); t(' 针。')
   return segs
 })

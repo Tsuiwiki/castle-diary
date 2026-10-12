@@ -30,6 +30,7 @@
         <div class="pd-foods" :title="d.foods.join('、')">{{ d.foods.length ? d.foods.slice(0, 3).join('、') + (d.foods.length > 3 ? '…' : '') : '—' }}</div>
       </div>
     </div>
+    <div class="plate-note">餐盘只统计记下来的餐；没记不等于没吃，更不等于吃得不够</div>
     <div class="plate-legend">
       <span v-for="g in FOOD_GROUPS" :key="g.key"><i :style="{ background: g.color }"></i>{{ g.key }}</span>
     </div>
@@ -344,6 +345,7 @@ const groupedMeals = computed(() => {
 .pd-label { font-size: 12px; font-weight: 700; display: flex; flex-direction: column; align-items: center; line-height: 1.3; }
 .pd-label span { font-size: 11px; font-weight: 400; color: var(--ink-3); }
 .pd-foods { font-size: 11px; color: var(--ink-2); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plate-note { text-align: center; font-size: 12px; color: var(--ink-3); margin-top: 8px; }
 .plate-legend { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-top: 10px; }
 .plate-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
 .plate-sum { text-align: center; font-size: 13px; margin-top: 8px; color: var(--ink); }

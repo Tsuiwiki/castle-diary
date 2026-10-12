@@ -341,6 +341,9 @@ const filteredHealths = computed(() => {
   if (listFilter.value) return sortedHealths.value.filter(h => h.kind === listFilter.value)
   return sortedHealths.value
 })
+
+// 删掉当前页最后一条后，页码不能超过总页数
+watch(pageCount, n => { if (page.value > n) page.value = n })
 const kindIcon = k => ({ '体检': 'heart-pulse', '疫苗': 'syringe', '就医': 'heart', '生长': 'trending-up' }[k] || 'heart')
 const kindLevel = k => ({ '体检': 'ok', '疫苗': 'ok', '就医': 'warn', '生长': 'ok' }[k] || 'ok')
 </script>
