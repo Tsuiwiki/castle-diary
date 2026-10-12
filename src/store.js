@@ -8,7 +8,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.24.0'
+export const APP_VERSION = '0.25.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -332,6 +332,8 @@ async function init() {
   navigator.storage?.persist?.().then(ok => {
     if (!ok) console.warn('[castle-diary] 浏览器拒绝了持久化存储申请，请记得定期导出备份')
   }).catch(() => {})
+  const { initAppLock } = await import('./utils/appLock.js')
+  initAppLock()
   ready.value = true
 }
 init()
@@ -1276,10 +1278,12 @@ export function rangeReport(startDate, endDate) {
 }
 
 // ---------- 清空 ----------
-export async function resetAll() {
+export async function resetAll(noReload = false) {
   localStorage.removeItem(LS_KEY)
   await idbClear().catch(() => {})
-  location.reload()
+  const { clearAppLock } = await import('./utils/appLock.js')
+  clearAppLock()
+  if (!noReload) location.reload()
 }
 
 // ---------- 备份导出 / 导入（跨设备迁移的唯一通道） ----------

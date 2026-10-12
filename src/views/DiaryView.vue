@@ -567,6 +567,12 @@ function showToast(msg) {
   toastTimer = setTimeout(() => (toast.value = ''), 2400)
 }
 
+// 上次因锁定等原因丢弃了录音：轻声告知
+if (sessionStorage.getItem('castle-diary-lost-rec')) {
+  sessionStorage.removeItem('castle-diary-lost-rec')
+  setTimeout(() => showToast('上次锁定时正在录音，那段录音没有保存'), 1800)
+}
+
 // PWA 离线提示：第一次打开时轻声告诉一声（已安装为桌面应用则不再提示）
 if (!store.settings.pwaHintShown && !window.matchMedia('(display-mode: standalone)').matches) {
   store.settings.pwaHintShown = true
@@ -1087,10 +1093,14 @@ function onKey(e) {
 onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
-  flushText()
+  flushText() // 想说的话草稿会落盘
   clearTimeout(toastTimer)
   clearTimeout(stampTimer)
-  if (rec.state === 'recording') discardRec()
+  if (rec.state === 'recording') {
+    discardRec()
+    // 锁定/离开时正在录音：记个标记，下次进来提示一声
+    sessionStorage.setItem('castle-diary-lost-rec', '1')
+  }
   stopAudio()
 })
 </script>

@@ -1,5 +1,8 @@
 <template>
-  <div v-if="!ready" class="loading">城堡日记<br>加载中…</div>
+  <div v-if="!ready || !lock.ready" class="loading">城堡日记<br>加载中…</div>
+
+  <!-- 应用锁：锁定时不渲染业务界面（不是遮罩） -->
+  <AppLockOverlay v-else-if="lock.locked" />
 
   <div v-else class="shell">
     <!-- 左侧边栏（桌面）/ 底部 tabbar（手机，靠 CSS 断点切换形态） -->
@@ -81,7 +84,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick , onMounted, onBeforeUnmount } from 'vue'
 import Icon from './components/Icon.vue'
 import DiaryView from './views/DiaryView.vue'
 import DiaryCalendarView from './views/DiaryCalendarView.vue'
@@ -104,6 +107,21 @@ import RemindersView from './views/RemindersView.vue'
 import SettingsView from './views/SettingsView.vue'
 import WordCardSheet from './components/WordCardSheet.vue'
 import { store, ready, APP_VERSION, addBookSignal, diaryDate, todayStr, storageError } from './store.js'
+import { lock, initAppLock, onHidden, onVisible, onStorageSignal } from './utils/appLock.js'
+import AppLockOverlay from './components/AppLockOverlay.vue'
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', onVisChange)
+  window.addEventListener('storage', onStorageSignal)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisChange)
+  window.removeEventListener('storage', onStorageSignal)
+})
+function onVisChange() {
+  if (document.hidden) onHidden()
+  else onVisible()
+}
 import { monthIndex } from './utils/diaryText.js'
 import { audioError } from './utils/recorder.js'
 

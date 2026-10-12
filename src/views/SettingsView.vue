@@ -42,6 +42,70 @@
     <p v-if="ttsOn && !voices.length" style="font-size:12px;color:var(--ink-2);margin-top:8px">未检测到中文语音包，将使用系统默认发音</p>
   </div>
 
+  <!-- 安全与隐私：本地 PIN 应用锁 -->
+  <div class="card">
+    <div class="card-title"><span class="ct-left"><Icon name="lock" :size="16" />安全与隐私</span></div>
+    <template v-if="!lockState.enabled">
+      <p class="sub" style="margin:0 0 8px">
+        应用锁用于防止他人直接打开应用查看内容。它是<b>界面访问锁，不是数据加密</b>：数据仍以可读形式保存在本机浏览器与备份文件中，备份文件（含自动备份的「城堡日记-自动备份.json」）是可读的。
+      </p>
+      <button class="btn-primary" @click="openLockSetup">开启应用锁（6 位 PIN）</button>
+    </template>
+    <template v-else>
+      <div class="lk-row"><span>应用锁</span><b>已开启</b><button class="mini-btn ghost" @click="lockAction = 'disable'">关闭</button></div>
+      <div class="lk-row"><span>PIN</span><b>••••••</b><button class="mini-btn ghost" @click="lockAction = 'change'">修改 PIN</button></div>
+      <div class="lk-row">
+        <span>恢复码</span>
+        <b :style="lockState.recoverySet ? '' : 'color:#c0392b'">{{ lockState.recoverySet ? '已设置' : '未设置恢复码：忘记 PIN 时无法保留数据解锁' }}</b>
+        <button class="mini-btn ghost" @click="regenRecovery">重新生成</button>
+      </div>
+      <div class="lk-row">
+        <span>自动锁定</span>
+        <select v-model="lockPolicy" @change="onPolicyChange">
+          <option v-for="p in AUTO_LOCK_POLICIES" :key="p.value" :value="p.value">{{ p.label }}</option>
+        </select>
+      </div>
+      <div class="lk-row"><span>马上锁上</span><button class="mini-btn" @click="lockNow()">立即锁定</button></div>
+    </template>
+
+    <!-- PIN 操作面板 -->
+    <div v-if="lockAction" class="lk-panel">
+      <template v-if="lockAction === 'setup'">
+        <p class="sub" style="margin:0 0 8px">这是界面访问锁，<b>不等于本地数据加密</b>——数据仍以可读形式保存在本机浏览器与备份文件中。</p>
+        <input v-model.trim="p1" class="lk-input" type="password" inputmode="numeric" maxlength="6" placeholder="设置 6 位 PIN" autocomplete="off" />
+        <input v-model.trim="p2" class="lk-input" type="password" inputmode="numeric" maxlength="6" placeholder="再输一遍" autocomplete="off" />
+        <div class="lk-msg">{{ lockMsg }}</div>
+        <button class="btn-primary" :disabled="lockBusy" @click="doSetup">{{ lockBusy ? '正在生成…' : '下一步' }}</button>
+      </template>
+      <template v-else-if="lockAction === 'code'">
+        <div class="lk-code">{{ newCode }}</div>
+        <p class="sub" style="margin:0 0 8px">这串恢复码只显示这一次，请抄写或打印保存。忘记 PIN 时，它是唯一能保留全部数据解锁的方式。</p>
+        <label class="lk-check"><input type="checkbox" v-model="codeSaved" /> 我已保存恢复码</label>
+        <button class="btn-primary" :disabled="!codeSaved" @click="finishSetup">完成开启</button>
+        <button class="mini-btn ghost" style="margin-top:6px" @click="skipCode">跳过（不推荐）</button>
+      </template>
+      <template v-else-if="lockAction === 'change'">
+        <input v-model.trim="p0" class="lk-input" type="password" inputmode="numeric" maxlength="6" placeholder="当前 PIN" autocomplete="off" />
+        <input v-model.trim="p1" class="lk-input" type="password" inputmode="numeric" maxlength="6" placeholder="新 PIN（6 位数字）" autocomplete="off" />
+        <input v-model.trim="p2" class="lk-input" type="password" inputmode="numeric" maxlength="6" placeholder="再输一遍新 PIN" autocomplete="off" />
+        <div class="lk-msg">{{ lockMsg }}</div>
+        <button class="btn-primary" :disabled="lockBusy" @click="doChange">确认修改</button>
+      </template>
+      <template v-else-if="lockAction === 'disable'">
+        <input v-model.trim="p0" class="lk-input" type="password" inputmode="numeric" maxlength="6" placeholder="输入当前 PIN 以关闭" autocomplete="off" />
+        <div class="lk-msg">{{ lockMsg }}</div>
+        <button class="btn-primary" :disabled="lockBusy" @click="doDisable">确认关闭应用锁</button>
+      </template>
+      <template v-else-if="lockAction === 'regen'">
+        <div class="lk-code">{{ newCode }}</div>
+        <p class="sub" style="margin:0 0 8px">旧恢复码已失效。这串只显示这一次，请抄写或打印保存。</p>
+        <label class="lk-check"><input type="checkbox" v-model="codeSaved" /> 我已保存恢复码</label>
+        <button class="btn-primary" :disabled="!codeSaved" @click="lockAction = ''">完成</button>
+      </template>
+      <button class="mini-btn ghost" style="margin-top:8px" @click="lockAction = ''; lockMsg = ''">取消</button>
+    </div>
+  </div>
+
   <!-- 数据备份 -->
   <div class="card">
     <div class="card-title">
@@ -103,6 +167,7 @@
 import { ref } from 'vue'
 import Icon from '../components/Icon.vue'
 import { store, updateSettings, exportBackup, importBackup, resetAll, todayStr, markExported, autoBackup, enableAutoBackup, resumeAutoBackup, disableAutoBackup } from '../store.js'
+import { lock as lockState, AUTO_LOCK_POLICIES, setupPin, changePin, disableAppLock, regenerateRecoveryCode, skipRecoveryCode, getAutoLockPolicy, setAutoLockPolicy, lockNow } from '../utils/appLock.js'
 import { getOcrKey, setOcrKey, hasCustomOcrKey } from '../utils/ocr.js'
 import { speak, listZhVoices, getTtsVoiceName, setTtsVoiceName } from '../utils/tts.js'
 
@@ -183,9 +248,130 @@ async function doReset() {
     await resetAll()
   }
 }
+
+// ---------- 安全与隐私（应用锁） ----------
+const lockAction = ref('') // '' | setup | code | change | disable | regen
+const p0 = ref('')
+const p1 = ref('')
+const p2 = ref('')
+const lockMsg = ref('')
+const lockBusy = ref(false)
+const newCode = ref('')
+const codeSaved = ref(false)
+const lockPolicy = ref(getAutoLockPolicy())
+
+function onPolicyChange() {
+  setAutoLockPolicy(lockPolicy.value)
+  // 改成"立即锁定"当场生效
+  if (lockPolicy.value === 'immediate') lockNow()
+}
+
+function openLockSetup() {
+  lockAction.value = 'setup'
+  p1.value = ''
+  p2.value = ''
+  lockMsg.value = ''
+}
+
+async function doSetup() {
+  lockMsg.value = ''
+  if (!/^\d{6}$/.test(p1.value)) { lockMsg.value = 'PIN 需要 6 位数字'; return }
+  if (p1.value !== p2.value) { lockMsg.value = '两次输入不一致，请重新输入'; return }
+  lockBusy.value = true
+  try {
+    newCode.value = await setupPin(p1.value)
+    codeSaved.value = false
+    lockAction.value = 'code'
+  } catch (e) {
+    lockMsg.value = e.message || '当前浏览器环境不支持安全 PIN 校验'
+  } finally {
+    lockBusy.value = false
+  }
+}
+
+function finishSetup() {
+  lockAction.value = ''
+  toast('应用锁已开启。下次打开或刷新城堡日记时，需要输入 PIN')
+}
+
+function skipCode() {
+  if (!confirm('跳过恢复码意味着：忘记 PIN 时只能重置本机数据，备份之后新增的记录会丢失。确定跳过？')) return
+  skipRecoveryCode()
+  lockAction.value = ''
+  toast('应用锁已开启（未设置恢复码）')
+}
+
+async function regenRecovery() {
+  lockBusy.value = true
+  try {
+    newCode.value = await regenerateRecoveryCode()
+    codeSaved.value = false
+    lockAction.value = 'regen'
+    lockMsg.value = ''
+  } finally {
+    lockBusy.value = false
+  }
+}
+
+async function doChange() {
+  lockMsg.value = ''
+  if (!/^\d{6}$/.test(p1.value)) { lockMsg.value = '新 PIN 需要 6 位数字'; return }
+  if (p1.value !== p2.value) { lockMsg.value = '两次输入的新 PIN 不一致'; return }
+  lockBusy.value = true
+  try {
+    const ok = await changePin(p0.value, p1.value)
+    if (ok) {
+      lockAction.value = ''
+      p0.value = p1.value = p2.value = ''
+      toast('PIN 已修改，恢复码不变')
+    } else {
+      lockMsg.value = '当前 PIN 不正确'
+    }
+  } finally {
+    lockBusy.value = false
+  }
+}
+
+async function doDisable() {
+  lockMsg.value = ''
+  lockBusy.value = true
+  try {
+    const ok = await disableAppLock(p0.value)
+    if (ok) {
+      lockAction.value = ''
+      p0.value = ''
+      toast('应用锁已关闭')
+    } else {
+      lockMsg.value = 'PIN 不正确，应用锁保持开启'
+    }
+  } finally {
+    lockBusy.value = false
+  }
+}
+
+let toastTimer2 = null
+function toast(m) {
+  const el = document.createElement('div')
+  el.className = 'toast'
+  el.textContent = m
+  document.body.appendChild(el)
+  setTimeout(() => el.remove(), 2400)
+}
 </script>
 
 <style scoped>
+.lk-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+.lk-row:last-of-type { border-bottom: none; }
+.lk-row span { color: var(--ink-2); width: 72px; flex: none; }
+.lk-row b { flex: 1; }
+.lk-row select { border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; background: #fffdf9; }
+.lk-panel { margin-top: 10px; background: #fff8ec; border: 1px solid rgba(246,176,100,.35); border-radius: 12px; padding: 12px; }
+.lk-input { display: block; width: 100%; box-sizing: border-box; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 15px; outline: none; }
+.lk-input:focus { border-color: var(--brand); }
+.lk-msg { min-height: 18px; font-size: 12px; color: #c0392b; margin-bottom: 6px; }
+.lk-code { font-family: monospace; font-size: 19px; font-weight: 700; letter-spacing: 1px; background: #fff; border: 1px dashed rgba(224,166,59,.6); border-radius: 10px; padding: 10px; text-align: center; margin-bottom: 8px; color: #6b4a00; user-select: all; }
+.lk-check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 10px; cursor: pointer; }
+
 .bk-note {
   display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 10px;
   background: #fff7e6; border: 1px solid rgba(224, 166, 59, .5); border-radius: 10px;
