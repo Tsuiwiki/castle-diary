@@ -65,7 +65,7 @@
           <option v-for="p in AUTO_LOCK_POLICIES" :key="p.value" :value="p.value">{{ p.label }}</option>
         </select>
       </div>
-      <div class="lk-row"><span>马上锁上</span><button class="mini-btn" @click="lockNow()">立即锁定</button></div>
+      <div class="lk-row"><span>马上锁上</span><button class="mini-btn" @click="lockNow()">立即锁定</button><span class="lk-hint">快捷键 Ctrl+Shift+L</span></div>
     </template>
 
     <!-- PIN 操作面板 -->
@@ -370,6 +370,7 @@ function toast(m) {
 .lk-input:focus { border-color: var(--brand); }
 .lk-msg { min-height: 18px; font-size: 12px; color: #c0392b; margin-bottom: 6px; }
 .lk-code { font-family: monospace; font-size: 19px; font-weight: 700; letter-spacing: 1px; background: #fff; border: 1px dashed rgba(224,166,59,.6); border-radius: 10px; padding: 10px; text-align: center; margin-bottom: 8px; color: #6b4a00; user-select: all; }
+.lk-hint { font-size: 11px; color: var(--ink-3); }
 .lk-check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 10px; cursor: pointer; }
 
 .bk-note {

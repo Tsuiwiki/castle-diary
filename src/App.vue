@@ -107,17 +107,26 @@ import RemindersView from './views/RemindersView.vue'
 import SettingsView from './views/SettingsView.vue'
 import WordCardSheet from './components/WordCardSheet.vue'
 import { store, ready, APP_VERSION, addBookSignal, diaryDate, todayStr, storageError } from './store.js'
-import { lock, initAppLock, onHidden, onVisible, onStorageSignal } from './utils/appLock.js'
+import { lock, initAppLock, onHidden, onVisible, onStorageSignal, lockNow } from './utils/appLock.js'
 import AppLockOverlay from './components/AppLockOverlay.vue'
 
 onMounted(() => {
   document.addEventListener('visibilitychange', onVisChange)
   window.addEventListener('storage', onStorageSignal)
+  window.addEventListener('keydown', onLockKey)
 })
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', onVisChange)
   window.removeEventListener('storage', onStorageSignal)
+  window.removeEventListener('keydown', onLockKey)
 })
+// Ctrl+Shift+L 立即锁定（仿 Win+L）；输入框里也生效，锁屏后不起作用
+function onLockKey(e) {
+  if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l') && lock.enabled && !lock.locked) {
+    e.preventDefault()
+    lockNow()
+  }
+}
 function onVisChange() {
   if (document.hidden) onHidden()
   else onVisible()
