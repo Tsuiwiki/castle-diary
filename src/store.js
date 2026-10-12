@@ -4,10 +4,11 @@
 
 import { reactive, ref } from 'vue'
 import { idbPutCover, idbGet, idbAllCovers, idbDelCover, idbClear } from './utils/idb.js'
+import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.21.2'
+export const APP_VERSION = '0.23.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -100,8 +101,28 @@ const dropRuntime = (k, v) => (RUNTIME_KEYS.has(k) ? undefined : v)
 
 // 保存失败时给界面一个醒目的提示（之前只打 console，用户无从得知）
 export const storageError = ref('')
+let lastPersistFailed = false
 
-function persistNow() {
+// 写图片/录音到 IndexedDB：配额不足时自动重压图片再试一次，仍不行就在页面顶部给出明确提示
+async function putMedia(rec, label = '文件') {
+  try {
+    await idbPutCover(rec)
+    return true
+  } catch (e) {
+    if (e?.name === 'QuotaExceededError' && rec.dataUrl?.startsWith('data:image')) {
+      try {
+        const smaller = await compressDataUrl(rec.dataUrl, 640, 0.55)
+        await idbPutCover({ ...rec, dataUrl: smaller })
+        storageError.value = `浏览器存储空间有点紧张，已自动压缩这张${label}存下了。建议到「设置 → 备份与迁移」导出一次备份。`
+        return true
+      } catch { /* 重压也失败，走下面的统一提示 */ }
+    }
+    storageError.value = `浏览器存储空间不足，这张${label}没能保存。请先到「设置 → 备份与迁移」导出备份，再到相册删掉一些旧照片腾出空间。`
+    return false
+  }
+}
+
+export function persistNow() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       settings: store.settings,
@@ -122,10 +143,14 @@ function persistNow() {
       illnesses: store.illnesses,
       members: store.members,
     }, dropRuntime))
-    storageError.value = ''
+    if (lastPersistFailed) {
+      storageError.value = ''
+      lastPersistFailed = false
+    }
   } catch (e) {
     console.warn('[castle-books] 本地保存失败（存储空间不足？）', e)
     storageError.value = '刚才的记录没能保存到本机（浏览器存储空间不足）。请先到「设置 → 备份与迁移」导出备份。'
+    lastPersistFailed = true
   }
 }
 
@@ -346,7 +371,7 @@ export async function setBookCover(bookId, dataUrl) {
     await idbDelCover(book.coverId).catch(() => {})
   }
   const coverId = uid()
-  await idbPutCover({ id: coverId, dataUrl })
+  await putMedia({ id: coverId, dataUrl }, '封面')
   book.coverId = coverId
   book.coverUrl = dataUrl
   saveLocal()
@@ -415,14 +440,14 @@ export function addWord({ word, kind = '词语', sourceBook = null, date, pinyin
   if (image) {
     w.imageId = uid()
     w.imageUrl = image
-    idbPutCover({ id: w.imageId, dataUrl: image }).catch(e => console.warn('[word-img]', e))
+    putMedia({ id: w.imageId, dataUrl: image }, '配图')
   }
   // 录音（可选）：她自己说这个词的声音，同样进 IndexedDB
   if (audio?.dataUrl) {
     w.audioId = uid()
     w.audioMs = audio.ms || 0
     w.audioUrl = audio.dataUrl
-    idbPutCover({ id: w.audioId, dataUrl: audio.dataUrl }).catch(e => console.warn('[word-audio]', e))
+    putMedia({ id: w.audioId, dataUrl: audio.dataUrl }, '录音')
   }
   store.words.unshift(w)
   saveLocal()
@@ -435,7 +460,7 @@ export async function setWordAudio(id, audio) {
   if (!w || !audio?.dataUrl) return
   if (w.audioId) await idbDelCover(w.audioId).catch(() => {})
   const audioId = uid()
-  await idbPutCover({ id: audioId, dataUrl: audio.dataUrl })
+  await putMedia({ id: audioId, dataUrl: audio.dataUrl }, '录音')
   w.audioId = audioId
   w.audioMs = audio.ms || 0
   w.audioUrl = audio.dataUrl
@@ -472,7 +497,7 @@ export async function setWordImage(id, dataUrl) {
   if (!w) return
   if (w.imageId) await idbDelCover(w.imageId).catch(() => {})
   const imageId = uid()
-  await idbPutCover({ id: imageId, dataUrl })
+  await putMedia({ id: imageId, dataUrl }, '照片')
   w.imageId = imageId
   w.imageUrl = dataUrl
   saveLocal()
@@ -842,7 +867,7 @@ export async function setToyImage(id, dataUrl) {
   if (!t) return
   if (t.imageId) await idbDelCover(t.imageId).catch(() => {})
   const imageId = uid()
-  await idbPutCover({ id: imageId, dataUrl })
+  await putMedia({ id: imageId, dataUrl }, '照片')
   t.imageId = imageId
   t.imageUrl = dataUrl
   saveLocal()
@@ -915,7 +940,7 @@ export async function setGameImage(id, dataUrl) {
   if (!g) return
   if (g.imageId) await idbDelCover(g.imageId).catch(() => {})
   const imageId = uid()
-  await idbPutCover({ id: imageId, dataUrl })
+  await putMedia({ id: imageId, dataUrl }, '照片')
   g.imageId = imageId
   g.imageUrl = dataUrl
   saveLocal()
@@ -972,7 +997,7 @@ export function addPhoto({ dataUrl, date, note = '', milestoneId = '' }) {
   if (dataUrl) {
     p.imageId = uid()
     p.imageUrl = dataUrl
-    idbPutCover({ id: p.imageId, dataUrl }).catch(e => console.warn('[photo]', e))
+    putMedia({ id: p.imageId, dataUrl }, '照片')
   }
   store.photos.unshift(p)
   saveLocal()
@@ -1113,7 +1138,7 @@ export function setAvatar(dataUrl) {
     const id = uid()
     store.settings.avatarId = id
     store.settings.avatarUrl = dataUrl
-    idbPutCover({ id, dataUrl }).catch(e => console.warn('[avatar]', e))
+    putMedia({ id, dataUrl }, '头像')
   } else {
     delete store.settings.avatarId
     delete store.settings.avatarUrl
@@ -1376,7 +1401,7 @@ export async function importBackup(data) {
   await idbClear().catch(() => {})
   const { covers = [], ...rest } = payload
   for (const c of covers) {
-    if (c.dataUrl) await idbPutCover({ id: c.id, dataUrl: c.dataUrl })
+    if (c.dataUrl) await putMedia({ id: c.id, dataUrl: c.dataUrl }, '图片')
   }
   // 词数据兜底补齐 mastered 字段
   const words = (rest.words || []).map(w => ({ mastered: false, ...w }))

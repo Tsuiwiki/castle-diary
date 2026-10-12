@@ -96,36 +96,36 @@ function drawPlate(c, x, y, r, hit) {
   c.restore()
 }
 
-export async function renderWeeklyPoster(start, end, report, dayData) {
+export async function renderWeeklyPoster(p) {
+  // 只消费 weeklyShare 的 payload（只读 DTO），不再独立读 store
   const PW = 680
   const c0 = document.createElement('canvas')
-  const cx = c0.getContext('2d')
+  c0.getContext('2d')
   const kai = '"KaiTi", "STKaiti", "Kaiti SC", serif'
-  const name = store.settings.childName || '宝宝'
   const pad = 44
 
-  // 先算内容行数以定画布高度
-  const quotes = store.words.filter(w => w.funny && inRange(w.date, start, end))
-  const photos = store.photos.filter(p => inRange(p.date, start, end) && p.imageUrl).slice(0, 4)
   const statLines = []
-  if (report.readCount) statLines.push(`📚 阅读 ${report.readCount} 次 ${report.readMinutes} 分钟${report.topBook ? `，最爱《${report.topBook.title}》` : ''}`)
-  if (report.newWords.length) statLines.push(`🗣 新词 ${report.newWords.length} 个（${report.newWords.slice(0, 8).map(w => w.word).join('、')}${report.newWords.length > 8 ? '…' : ''}）`)
-  if (report.mealCount) statLines.push(`🍚 记了 ${report.mealCount} 餐${report.firstTastes.length ? `，第一次吃 ${report.firstTastes.join('、')}` : ''}`)
-  if (report.playCount) statLines.push(`🧩 一起玩 ${report.playCount} 次游戏（${report.games.slice(0, 4).map(g => g.name).join('、')}）`)
-  for (const i of report.illnesses) statLines.push(`🤒 生病：${i.symptoms.join('、') || '不舒服'}，${i.ended ? `${i.days} 天好了` : `第 ${i.days} 天`}${i.maxTemp ? `，最高 ${i.maxTemp.toFixed(1)}℃` : ''}`)
-  if (report.healths.length) statLines.push(`❤️ ${report.healths.map(h => h.title).join('；')}`)
-  const diaryDays = dayData.filter(d => d.text).length
-  statLines.push(`✍️ 写了 ${diaryDays} 篇日记`)
+  if (p.booksGames?.readCount) statLines.push(`📚 阅读 ${p.booksGames.readCount} 次 ${p.booksGames.readMinutes} 分钟${p.booksGames.topBook ? `，最爱《${p.booksGames.topBook.title}》` : ''}`)
+  if (p.base.newWords.length) statLines.push(`🗣 新词 ${p.base.newWords.length} 个（${p.base.newWords.slice(0, 8).join('、')}${p.base.newWords.length > 8 ? '…' : ''}）`)
+  if (p.base.mealCount) statLines.push(`🍚 记了 ${p.base.mealCount} 餐${p.base.firstTastes.length ? `，第一次吃 ${p.base.firstTastes.join('、')}` : ''}`)
+  if (p.booksGames?.playCount) statLines.push(`🧩 一起玩 ${p.booksGames.playCount} 次游戏（${p.booksGames.games.slice(0, 4).map(g => g.name).join('、')}）`)
+  if (p.health) {
+    for (const i of p.health.illnesses) statLines.push(`🤒 生病：${i.symptoms.join('、') || '不舒服'}，${i.ended ? `${i.days} 天好了` : `第 ${i.days} 天`}${i.maxTemp ? `，最高 ${i.maxTemp.toFixed(1)}℃` : ''}`)
+    if (p.health.healths.length) statLines.push(`❤️ ${p.health.healths.map(h => h.title).join('；')}`)
+    if (p.health.medUses) statLines.push(`💊 用药 ${p.health.medUses} 次`)
+  }
+  if (p.photos?.total) statLines.push(`📷 本周共 ${p.photos.total} 张照片${p.photos.total > 4 ? '，这里展示 4 张' : ''}`)
+  if (p.base.diaryDays) statLines.push(`✍️ 写了 ${p.base.diaryDays} 篇日记`)
 
   let estH = 250 // 头 + 餐盘
   estH += statLines.length * 34 + 30
-  if (quotes.length) estH += quotes.slice(0, 3).length * 66 + 60
-  if (photos.length) estH += 180
+  if (p.quotes?.length) estH += p.quotes.slice(0, 3).length * 66 + 60
+  if (p.photos?.list.length) estH += 180
   estH += 90 // 尾
 
   const canvas = document.createElement('canvas')
   canvas.width = PW
-  canvas.height = Math.max(760, estH)
+  canvas.height = Math.max(680, estH)
   const c = canvas.getContext('2d')
   // 纸面
   c.fillStyle = '#fff8ec'
@@ -137,13 +137,13 @@ export async function renderWeeklyPoster(start, end, report, dayData) {
   c.fillStyle = '#b4743a'; c.font = `600 16px ${kai}`
   c.fillText('成长周报 · WEEKLY', pad, 34)
   c.fillStyle = '#4a3520'; c.font = `700 30px ${kai}`
-  c.fillText(`${name}的这一周`, pad, 60)
+  c.fillText(`${p.name}的这一周`, pad, 60)
   c.fillStyle = '#a5774a'; c.font = `400 14px ${kai}`
-  c.fillText(`${start} ~ ${end}`, pad, 100)
+  c.fillText(`${p.range.start} ~ ${p.range.end}`, pad, 100)
 
   // 7 只小餐盘
   const pr = 17
-  dayData.forEach((d, i) => {
+  p.plates.forEach((d, i) => {
     const x = pad + i * ((PW - pad * 2 - pr * 2) / 6)
     drawPlate(c, x, 130, pr, d.groups)
     c.fillStyle = '#a89880'; c.font = '400 11px sans-serif'
@@ -163,12 +163,12 @@ export async function renderWeeklyPoster(start, end, report, dayData) {
     y += 34
   }
   // 童言稚语
-  if (quotes.length) {
+  if (p.quotes?.length) {
     y += 16
     c.fillStyle = '#c8860d'; c.font = `700 18px ${kai}`
     c.fillText('✨ 童言稚语', pad, y)
     y += 34
-    for (const w of quotes.slice(0, 3)) {
+    for (const w of p.quotes.slice(0, 3)) {
       c.font = `italic 400 19px ${kai}`
       const lines = wrapText(c, `“${w.word}”`, PW - pad * 2 - 30)
       for (const seg of lines) {
@@ -182,13 +182,12 @@ export async function renderWeeklyPoster(start, end, report, dayData) {
     }
   }
   // 照片条
-  if (photos.length) {
+  if (p.photos?.list.length) {
     y += 14
-    const imgs = await Promise.all(photos.map(p => loadImage(p.imageUrl)))
+    const imgs = await Promise.all(p.photos.list.map(ph => loadImage(ph.imageUrl)))
     const th = 130, gap = 12
     let x = pad
-    for (let i = 0; i < imgs.length; i++) {
-      const img = imgs[i]
+    for (const img of imgs) {
       if (!img) continue
       const s = Math.max(th / img.width, th / img.height)
       c.save()

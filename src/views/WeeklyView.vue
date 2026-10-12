@@ -12,7 +12,7 @@
         <b>{{ weekLabel }}</b>
         <span v-if="weekOffset === 0" class="badge badge-ok">本周</span>
         <button v-else class="mini-btn ghost" @click="weekOffset = 0">回到本周</button>
-        <button class="mini-btn" @click="makePoster"><Icon name="image" :size="13" />生成分享图</button>
+        <button class="mini-btn" @click="openShare"><Icon name="image" :size="13" />生成分享图</button>
       </div>
       <button class="mini-btn ghost" :disabled="weekOffset >= 0" @click="shiftWeek(1)">下一周<Icon name="chevron-right" :size="14" /></button>
     </div>
@@ -138,23 +138,53 @@
   <div class="card">
     <div class="card-title">
       <span class="ct-left"><Icon name="share" :size="16" />发给家人</span>
-      <button class="mini-btn" @click="copyText"><Icon name="copy" :size="13" />{{ copied ? '已复制 ✓' : '复制周报文本' }}</button>
+      <button class="mini-btn" @click="openShare"><Icon name="copy" :size="13" />复制周报文本</button>
     </div>
     <pre class="wk-export">{{ exportText }}</pre>
   </div>
 
-  <!-- 分享图 -->
-  <div v-if="poster.show" class="drawer-mask" @click="poster.show = false">
-    <div class="lightbox poster-sheet" @click.stop>
-      <div class="ps-head"><b>本周分享图</b><button class="mini-btn" @click="poster.show = false">关闭</button></div>
-      <div v-if="poster.loading" class="ps-loading">正在画分享图…</div>
-      <template v-else>
-        <img :src="poster.url" class="ps-img" />
+  <!-- 周报分享预览：四项开关 → 同一份筛选数据 → 图与文本 -->
+  <div v-if="share.show" class="drawer-mask" @click="closeShare">
+    <div class="lightbox share-sheet" @click.stop>
+      <div class="ps-head"><b>周报分享预览</b><span class="ps-week">{{ weekRange.start }} ~ {{ weekRange.end }}</span><button class="mini-btn" @click="closeShare">关闭</button></div>
+
+      <div class="sh-opts">
+        <div
+          v-for="opt in SHARE_OPTION_LABELS" :key="opt.key"
+          class="sh-opt" :class="{ on: share.options[opt.key], health: opt.health }"
+          @click="share.options[opt.key] = !share.options[opt.key]; share.stale = true"
+        >
+          <span class="sh-toggle">{{ share.options[opt.key] ? '✓' : '' }}</span>
+          <span class="sh-body">
+            <b>{{ opt.label }}</b>
+            <i>{{ opt.desc }}</i>
+          </span>
+        </div>
+        <div v-if="share.options.health" class="sh-warn">你已选择包含健康与生病信息，请确认后再分享</div>
+        <div v-else class="sh-note">默认不包含健康与生病信息</div>
+      </div>
+
+      <div class="sh-summary">最终将分享：{{ shareSummary }}</div>
+
+      <button class="btn-primary sh-gen" :disabled="share.loading" @click="generatePreview">
+        {{ share.loading ? '正在生成预览…' : (share.url || share.text ? '更新预览' : '生成预览') }}
+      </button>
+      <div v-if="share.error" class="sh-error">{{ share.error }}</div>
+
+      <template v-if="!share.stale && (share.url || share.text)">
+        <div class="sh-tabs">
+          <span class="sh-tab" :class="{ sel: share.tab === 'img' }" @click="share.tab = 'img'">分享图预览</span>
+          <span class="sh-tab" :class="{ sel: share.tab === 'text' }" @click="share.tab = 'text'">文本预览</span>
+        </div>
+        <img v-if="share.tab === 'img'" :src="share.url" class="ps-img" />
+        <pre v-else class="wk-export sh-text">{{ share.text }}</pre>
         <div class="ps-actions">
           <button class="btn-primary" @click="savePoster"><Icon name="download" :size="15" />保存图片</button>
-          <button class="mini-btn ghost" @click="copyPoster">{{ poster.copied ? '已复制 ✓' : '复制图片' }}</button>
+          <button class="mini-btn ghost" @click="copyPoster">{{ share.copiedImg ? '已复制 ✓' : '复制图片' }}</button>
+          <button class="mini-btn ghost" @click="copyShareText">{{ share.copiedText ? '已复制 ✓' : '复制文本' }}</button>
         </div>
       </template>
+      <div v-else-if="share.stale && share.url" class="sh-stale">选项改过了，点「更新预览」再复制或保存</div>
     </div>
   </div>
 </template>
@@ -166,11 +196,11 @@ import RainbowPlate from '../components/RainbowPlate.vue'
 import { store, rangeReport, babyDayOfLife, MOODS, getDiary, diaryDate, dayFoodGroups } from '../store.js'
 import { dayLines } from '../utils/diaryText.js'
 import { renderWeeklyPoster } from '../utils/monthCard.js'
+import { DEFAULT_WEEKLY_SHARE_OPTIONS, SHARE_OPTION_LABELS, buildWeeklySharePayload, buildWeeklyShareText } from '../utils/weeklyShare.js'
 
 const emit = defineEmits(['go'])
 
 const weekOffset = ref(0) // 0 = 本周，-1 = 上一周
-const copied = ref(false)
 
 function p2(n) { return String(n).padStart(2, '0') }
 function fmt(d) { return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}` }
@@ -201,7 +231,7 @@ const highlights = computed(() => {
   return list.slice(0, 4)
 })
 
-const exportText = computed(() => {
+const exportText = computed(() => { // 仅用于本页展示；分享走下方 share 流程
   const r = report.value
   const name = store.settings.childName || '宝宝'
   const day = babyDayOfLife(weekRange.value.end)
@@ -251,46 +281,113 @@ const weekQuotes = computed(() =>
   store.words.filter(w => w.funny && w.date >= weekRange.value.start && w.date <= weekRange.value.end)
 )
 
-// 分享图
-const poster = reactive({ show: false, loading: false, url: '', copied: false })
-async function makePoster() {
-  poster.show = true
-  poster.loading = true
-  poster.copied = false
+// ---------- 分享：统一预览流程（每次打开都恢复默认：健康默认不包含） ----------
+const share = reactive({
+  show: false, options: { ...DEFAULT_WEEKLY_SHARE_OPTIONS },
+  loading: false, stale: true, url: '', text: '', tab: 'img',
+  copiedImg: false, copiedText: false, error: '',
+})
+function openShare() {
+  share.show = true
+  share.options = { ...DEFAULT_WEEKLY_SHARE_OPTIONS }
+  share.loading = false
+  share.stale = true
+  share.url = ''
+  share.text = ''
+  share.tab = 'img'
+  share.copiedImg = false
+  share.copiedText = false
+  share.error = ''
+}
+function closeShare() { share.show = false }
+const shareSummary = computed(() => {
+  const parts = ['周报日期与统计']
+  if (share.options.booksGames) parts.push('绘本与游戏')
+  if (share.options.quotes) parts.push('童言稚语')
+  if (share.options.photos) parts.push('成长照片')
+  if (share.options.health) parts.push('健康与生病')
+  return parts.join('、')
+})
+async function generatePreview() {
+  share.loading = true
+  share.error = ''
+  share.copiedImg = false
+  share.copiedText = false
   try {
-    poster.url = await renderWeeklyPoster(weekRange.value.start, weekRange.value.end, report.value, diaryDays.value)
+    const payload = buildWeeklySharePayload(weekRange.value.start, weekRange.value.end, share.options)
+    share.text = buildWeeklyShareText(payload)
+    share.url = await renderWeeklyPoster(payload)
+    share.stale = false
+  } catch (e) {
+    share.error = '生成预览失败：' + (e?.message || e) + '。开关还都在，可以再试一次'
   } finally {
-    poster.loading = false
+    share.loading = false
   }
 }
 function savePoster() {
   const a = document.createElement('a')
-  a.href = poster.url
+  a.href = share.url
   a.download = `成长周报-${weekRange.value.start.replaceAll('-', '')}.png`
   a.click()
 }
 async function copyPoster() {
   try {
-    const blob = await (await fetch(poster.url)).blob()
+    const blob = await (await fetch(share.url)).blob()
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-    poster.copied = true
+    share.copiedImg = true
   } catch { alert('复制图片没成功，用「保存图片」吧') }
 }
-
-async function copyText() {
+async function copyShareText() {
   try {
-    await navigator.clipboard.writeText(exportText.value)
-    copied.value = true
-    setTimeout(() => (copied.value = false), 1500)
+    await navigator.clipboard.writeText(share.text)
+    share.copiedText = true
+    setTimeout(() => (share.copiedText = false), 1500)
   } catch {
-    // 剪贴板 API 不可用时降级选中
-    const el = document.querySelector('.wk-export')
-    if (el) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r) }
+    // 剪贴板不可用时降级为全选文本，手动复制
+    const el = document.querySelector('.sh-text')
+    if (el) {
+      const r = document.createRange()
+      r.selectNodeContents(el)
+      const s = getSelection()
+      s.removeAllRanges()
+      s.addRange(r)
+      share.tab = 'text'
+      alert('自动复制没成功，已帮你全选文本，按 Ctrl+C 复制')
+    }
   }
 }
 </script>
 
 <style scoped>
+.share-sheet { max-width: 560px; }
+.ps-week { font-size: 12px; color: var(--ink-2); margin-left: 10px; margin-right: auto; }
+.sh-opts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.sh-opt {
+  display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
+  background: #fffdf9;
+}
+.sh-opt.on { border-color: rgba(240, 147, 75, .6); background: rgba(240, 147, 75, .08); }
+.sh-opt.health.on { border-color: rgba(192, 57, 43, .5); background: rgba(192, 57, 43, .06); }
+.sh-toggle {
+  width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--line);
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; color: #fff; margin-top: 1px;
+}
+.sh-opt.on .sh-toggle { background: var(--brand); border-color: var(--brand); }
+.sh-opt.health.on .sh-toggle { background: #c0392b; border-color: #c0392b; }
+.sh-body b { font-size: 13px; display: block; }
+.sh-body i { font-style: normal; font-size: 11.5px; color: var(--ink-2); }
+.sh-warn { font-size: 12px; color: #c0392b; font-weight: 600; padding: 2px 4px; }
+.sh-note { font-size: 12px; color: var(--ink-3); padding: 2px 4px; }
+.sh-summary { font-size: 12.5px; color: var(--ink-2); background: #f6f1e7; border-radius: 8px; padding: 6px 10px; margin: 6px 0 10px; }
+.sh-gen { width: 100%; margin-bottom: 8px; }
+.sh-error { font-size: 12px; color: #c0392b; margin: 6px 0; }
+.sh-stale { font-size: 12px; color: #b4743a; text-align: center; padding: 10px 0; }
+.sh-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+.sh-tab { font-size: 12px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); cursor: pointer; color: var(--ink-2); }
+.sh-tab.sel { background: var(--brand); color: #fff; border-color: transparent; }
+.sh-text { max-height: 260px; overflow: auto; }
 .quote-card { border: 1px solid rgba(224, 166, 59, .4); background: rgba(255, 247, 224, .55); }
 .wq-item { display: flex; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px dashed rgba(224, 166, 59, .35); }
 .wq-item:last-child { border-bottom: none; }

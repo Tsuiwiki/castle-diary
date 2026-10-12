@@ -440,7 +440,7 @@ import {
   addWord, removeWord, setWordAudio, updateWord, addTrip, removeTrip, topPlaces,
   addPhoto, removePhoto, allReminders,
   addGame, addPlay, removePlay, lastPlayDate,
-  allergyOf, dayFoodGroups, babyMonths, backupDaysAgo,
+  allergyOf, dayFoodGroups, babyMonths, backupDaysAgo, persistNow,
   SYMPTOMS, illnessOn, illnessDays, startIllness, addSymptoms, removeSymptom, addTemp, removeTemp,
   setIllnessNote, addVisit, removeVisit, illnessMeds, endIllness, reopenIllness, useMedicine, medStatus,
 } from '../store.js'
@@ -559,6 +559,13 @@ function showToast(msg) {
   toast.value = msg
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => (toast.value = ''), 2400)
+}
+
+// PWA 离线提示：第一次打开时轻声告诉一声（已安装为桌面应用则不再提示）
+if (!store.settings.pwaHintShown && !window.matchMedia('(display-mode: standalone)').matches) {
+  store.settings.pwaHintShown = true
+  persistNow()
+  setTimeout(() => showToast('城堡日记支持离线使用，可添加到桌面，随时离线记录'), 1500)
 }
 
 // 吃了
