@@ -39,7 +39,7 @@ npm run preview
 ## 版本与文档
 
 - 版本号：`package.json` 与 `src/store.js` 的 `APP_VERSION` 保持一致
-- 完整产品文档（需求定位、功能架构、使用说明书、版本大事记）：见产品文档，当前版本 v0.23.1
+- 完整产品文档（需求定位、功能架构、使用说明书、版本大事记）：见产品文档，当前版本见 `package.json`（每次发布会同步）
 - 疫苗程序表更新机制：`src/utils/vaccineSchedule.js` 顶部注释
 
 ## License

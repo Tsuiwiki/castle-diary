@@ -1,8 +1,42 @@
 <template>
   <div v-if="!ready || !lock.ready" class="loading">城堡日记<br>加载中…</div>
 
+  <!-- 主数据损坏恢复页：原文留在本机不动，由用户决定 -->
+  <div v-else-if="dataCorrupt" class="corrupt-screen">
+    <div class="corrupt-card">
+      <div class="corrupt-icon"><Icon name="alert-triangle" :size="30" /></div>
+      <b>本机的数据文件读不出来了</b>
+      <p>原文还在这台设备上，城堡日记没有动它。可以：</p>
+      <p>① 先把原始数据下载一份副本（发给会修的人，也许能救回来）；<br>
+      ② 或用最近的备份文件导入恢复；<br>
+      ③ 确认都不要了，再清空重来。</p>
+      <div class="corrupt-actions">
+        <button class="btn-primary" @click="downloadCorruptRaw">下载原始数据副本</button>
+        <button class="mini-btn" @click="corruptFile.click()">导入备份恢复</button>
+        <input ref="corruptFile" type="file" accept=".json,application/json" hidden @change="onCorruptImport" />
+        <button class="mini-btn ghost corrupt-danger" @click="corruptReset">清空重来（不可撤销）</button>
+      </div>
+      <p class="corrupt-msg">{{ corruptMsg }}</p>
+    </div>
+  </div>
+
+  <template v-else>
+  <!-- 自然微风景底纹：远山剪影，随季节变色；冬季为雪山尖角。纯装饰（无业务数据），锁屏时也渲染，由锁屏毛玻璃雾化 -->
+  <div v-if="seasonKey !== 'off'" class="nature-scenery" aria-hidden="true">
+    <svg class="scenery-svg" viewBox="0 0 1440 320" preserveAspectRatio="none">
+      <template v-if="seasonKey === 'winter'">
+        <path class="hill-layer-1" d="M0,240 L180,150 L330,220 L520,110 L700,200 L880,130 L1080,230 L1260,160 L1440,210 L1440,320 L0,320 Z" />
+        <path class="hill-layer-2" d="M0,270 L220,200 L420,260 L640,180 L860,250 L1100,190 L1320,255 L1440,230 L1440,320 L0,320 Z" />
+      </template>
+      <template v-else>
+        <path class="hill-layer-1" d="M0,160 C320,220 420,100 720,180 C1020,260 1200,140 1440,190 L1440,320 L0,320 Z" />
+        <path class="hill-layer-2" d="M0,220 C380,160 600,240 960,190 C1260,140 1380,210 1440,240 L1440,320 L0,320 Z" />
+      </template>
+    </svg>
+  </div>
+
   <!-- 应用锁：锁定时不渲染业务界面（不是遮罩） -->
-  <AppLockOverlay v-else-if="lock.locked" />
+  <AppLockOverlay v-if="lock.locked" />
 
   <div v-else class="shell">
     <!-- 左侧边栏（桌面）/ 底部 tabbar（手机，靠 CSS 断点切换形态） -->
@@ -14,7 +48,8 @@
       <div
         v-for="n in NAV" :key="n.key"
         class="nav-item" :class="{ active: activeTop === n.key }"
-        @click="clickTop(n)"
+        :title="n.label" :aria-label="n.label" role="button" tabindex="0"
+        @click="clickTop(n)" @keydown.enter="clickTop(n)" @keydown.space.prevent="clickTop(n)"
       >
         <Icon :name="n.icon" :size="19" />
         <span class="nav-label">{{ n.label }}</span>
@@ -49,6 +84,7 @@
 
         <DiaryView v-if="view === 'diary'" @go="go" />
         <DiaryCalendarView v-else-if="view === 'calendar'" @go="go" />
+        <CollectionsHomeView v-if="view === 'collections'" @go="switchView" />
         <ShelfView v-else-if="view === 'shelf'" @open="id => bookId = id" />
         <WordsView v-else-if="view === 'words'" />
         <DietView v-else-if="view === 'diet'" />
@@ -81,13 +117,15 @@
     <!-- 播放录音失败的原因（日记、词库、翻卡共用） -->
     <div v-if="audioError" class="toast toast-err">{{ audioError }}</div>
   </div>
+  </template>
 </template>
 
 <script setup>
-import { ref, computed, nextTick , onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick , onMounted, onBeforeUnmount } from 'vue'
 import Icon from './components/Icon.vue'
 import DiaryView from './views/DiaryView.vue'
 import DiaryCalendarView from './views/DiaryCalendarView.vue'
+import CollectionsHomeView from './views/CollectionsHomeView.vue'
 import ShelfView from './views/ShelfView.vue'
 import BookView from './views/BookView.vue'
 import WordsView from './views/WordsView.vue'
@@ -106,9 +144,18 @@ import MembersView from './views/MembersView.vue'
 import RemindersView from './views/RemindersView.vue'
 import SettingsView from './views/SettingsView.vue'
 import WordCardSheet from './components/WordCardSheet.vue'
-import { store, ready, APP_VERSION, addBookSignal, diaryDate, todayStr, storageError } from './store.js'
+import { store, ready, APP_VERSION, addBookSignal, diaryDate, todayStr, storageError, dataCorrupt, downloadCorruptRaw, importBackup, resetAll } from './store.js'
 import { lock, initAppLock, onHidden, onVisible, onStorageSignal, lockNow } from './utils/appLock.js'
+import { applySeasonTheme } from './utils/seasonTheme.js'
 import AppLockOverlay from './components/AppLockOverlay.vue'
+
+
+// 四季通透背景：复用节气计算，跟随设置（可固定/关闭）
+const seasonKey = ref('autumn')
+watch(() => store.settings.seasonBg, () => {
+  applySeasonTheme(store.settings.seasonBg || 'auto', todayStr())
+  seasonKey.value = document.body.dataset.seasonBg
+}, { immediate: true })
 
 onMounted(() => {
   document.addEventListener('visibilitychange', onVisChange)
@@ -127,6 +174,26 @@ function onLockKey(e) {
     lockNow()
   }
 }
+// 损坏恢复页的导入与重置
+const corruptFile = ref(null)
+const corruptMsg = ref('')
+async function onCorruptImport(e) {
+  const f = e.target.files?.[0]
+  e.target.value = ''
+  if (!f) return
+  try {
+    const data = JSON.parse(await f.text())
+    await importBackup(data) // 原子化：失败会自动回滚（损坏原文仍在）
+    location.reload()
+  } catch (err) {
+    corruptMsg.value = err?.message?.startsWith('导入没有完成') ? err.message : '这个文件读不了。原始数据没有动，可以再试。'
+  }
+}
+async function corruptReset() {
+  if (!confirm('确定清空本机全部数据？原始数据副本将不再保留。此操作不可撤销！')) return
+  await resetAll()
+}
+
 function onVisChange() {
   if (document.hidden) onHidden()
   else onVisible()
@@ -137,10 +204,11 @@ import { audioError } from './utils/recorder.js'
 // 一级入口 6 个；带 children 的是"分组"，进入后顶部出子标签切换原有页面
 const NAV = [
   { key: 'diary', icon: 'book', label: '今天的日记', short: '日记' },
-  { key: 'calendar', icon: 'calendar', label: '往日日记', short: '往日' },
+  { key: 'calendar', icon: 'calendar', label: '日记日历', short: '日历' },
   {
     key: 'g-books', icon: 'library', label: '分册', short: '分册',
     children: [
+      { key: 'collections', icon: 'library', label: '总览' },
       { key: 'shelf', icon: 'library', label: '书房' },
       { key: 'words', icon: 'message-circle', label: '识字词库' },
       { key: 'cards', icon: 'sparkles', label: '翻卡巩固' },
@@ -156,7 +224,7 @@ const NAV = [
       { key: 'album', icon: 'camera', label: '相册' },
       { key: 'weekly', icon: 'calendar', label: '成长周报' },
       { key: 'year', icon: 'award', label: '年度回顾' },
-      { key: 'profile', icon: 'baby', label: '小主人档案' },
+      { key: 'profile', icon: 'baby', label: '成长名片' },
     ],
   },
   {
@@ -172,7 +240,7 @@ const NAV = [
     key: 'g-settings', icon: 'settings', label: '设置', short: '设置',
     children: [
       { key: 'settings', icon: 'settings', label: '设置' },
-      { key: 'members', icon: 'users', label: '家庭成员' },
+      { key: 'members', icon: 'users', label: '家庭成员管理' },
     ],
   },
 ]
@@ -190,6 +258,8 @@ const monthDays = computed(() => Object.keys(monthIndex(todayStr().slice(0, 7)))
 
 function clickTop(n) {
   if (n.children) {
+    // 分册特殊化：每次点击都回总览，不直接跳进某个具体分册
+    if (n.key === 'g-books') { switchView('collections'); return }
     switchView(lastChild[n.key] || n.children[0].key)
     return
   }

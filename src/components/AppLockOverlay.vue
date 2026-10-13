@@ -256,11 +256,13 @@ async function doRebuild() {
   try {
     const data = JSON.parse(await rebuildFile.text())
     if (!data || typeof data !== 'object' || (!data.settings && !data.baby)) throw new Error('bad')
-    await resetAll(true) // 清空本机数据与应用锁，不刷新
+    // 先导入（内部原子化：失败自动回滚原数据），全部成功后才解除应用锁
     await importBackup(data)
+    clearAppLock()
     location.reload()
-  } catch {
-    message.value = '这个备份文件读不了（格式不对）。没有改动任何数据，可以重选文件。'
+  } catch (e) {
+    // 失败时原数据与应用锁都原样保留
+    message.value = e?.message?.startsWith('导入没有完成') ? e.message : '这个备份文件读不了（格式不对）。没有改动任何数据，可以重选文件。'
     verifying.value = false
   }
 }
@@ -290,16 +292,21 @@ onBeforeUnmount(() => { clearInterval(throttleTimer); clearTimeout(shakeTimer) }
 .lock-screen {
   position: fixed; inset: 0; z-index: 200;
   display: flex; align-items: center; justify-content: center;
-  background:
-    radial-gradient(1200px 600px at 20% -10%, rgba(243, 201, 105, .25), transparent),
-    radial-gradient(900px 500px at 90% 110%, rgba(212, 122, 90, .18), transparent),
-    #fdf3e3;
+  /* 雾化底层季节风景（晨雾远眺城堡大门） */
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  /* 温润氛围压暗：上半晨雾微光、四周一点点沉静 */
+  background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, .25) 0%, rgba(90, 70, 50, .14) 100%);
+  animation: fadeInLock .4s ease-out;
 }
 .lock-card {
-  width: 320px; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); overflow: auto;
-  background: #fffdf9; border-radius: 22px; padding: 28px 26px;
-  box-shadow: 0 16px 48px rgba(150, 100, 40, .18);
-  border: 1px solid rgba(246, 176, 100, .35);
+  width: 340px; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); overflow: auto;
+  background: rgba(255, 255, 255, .78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 24px; padding: 32px 24px;
+  border: 1px solid rgba(255, 255, 255, .85);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, .08), 0 0 1px rgba(0, 0, 0, .1);
   text-align: center;
 }
 .lock-brand { color: #e07a50; }
@@ -307,15 +314,16 @@ onBeforeUnmount(() => { clearInterval(throttleTimer); clearTimeout(shakeTimer) }
 .lock-sub { font-size: 13px; color: var(--ink-2); margin: 4px 0 16px; }
 .lock-hidden-input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .lock-dots { display: flex; gap: 12px; justify-content: center; margin-bottom: 10px; cursor: text; }
-.lock-dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid #d9b98c; transition: background .12s; }
+.lock-dot { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid rgba(180, 160, 140, .4); background: rgba(255, 255, 255, .5); transition: background .12s; }
 .lock-dot.on { background: #e07a50; border-color: #e07a50; }
 .lock-msg { min-height: 20px; font-size: 12.5px; color: #c0392b; margin-bottom: 8px; }
 .lock-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
 .lock-key {
-  height: 52px; border-radius: 12px; border: 1px solid var(--line);
-  background: #fff; font-size: 17px; font-weight: 600; color: var(--ink); cursor: pointer;
+  height: 52px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .9);
+  background: rgba(255, 255, 255, .65); font-size: 17px; font-weight: 600; color: var(--ink); cursor: pointer;
+  transition: all .2s ease;
 }
-.lock-key:hover { border-color: var(--brand); background: #fff8ec; }
+.lock-key:hover { background: rgba(255, 255, 255, .9); transform: translateY(-1px); }
 .lock-key:active { transform: scale(.96); }
 .lock-key:disabled { opacity: .45; cursor: not-allowed; }
 .lock-links { margin-top: 4px; }
@@ -338,6 +346,7 @@ onBeforeUnmount(() => { clearInterval(throttleTimer); clearTimeout(shakeTimer) }
 .lock-check { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: 13px; margin-bottom: 12px; cursor: pointer; }
 .btn-danger-solid { background: #c0392b; color: #fff; border: none; border-radius: 12px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .btn-danger-solid:disabled { opacity: .5; cursor: not-allowed; }
+@keyframes fadeInLock { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
 .shake { animation: lk-shake .38s; }
 @keyframes lk-shake {
   0%, 100% { transform: translateX(0) }

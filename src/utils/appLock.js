@@ -44,27 +44,48 @@ function readJSON(key) {
 
 // ---------- 初始化：先读锁状态，再决定渲染业务还是锁屏 ----------
 export function initAppLock() {
-  const cred = readJSON(CRED_KEY)
-  lock.enabled = !!cred
-  lock.corrupt = !!cred && !cred.hash
-  lock.recoverySet = !!cred?.recoveryHash
+  const raw = localStorage.getItem(CRED_KEY)
+  if (raw === null) {
+    // 没有凭据键 = 未开启
+    lock.enabled = false
+    lock.corrupt = false
+  } else {
+    const cred = readJSON(CRED_KEY)
+    const valid = !!cred
+      && typeof cred.hash === 'string' && /^[0-9a-f]{64}$/.test(cred.hash)
+      && typeof cred.salt === 'string' && /^[0-9a-f]{32}$/.test(cred.salt)
+      && Number.isInteger(cred.iter) && cred.iter >= 1000
+    // 键存在但损坏：fail-closed，进入安全配置异常（不放行、不静默清除）
+    lock.enabled = true
+    lock.corrupt = !valid
+    lock.recoverySet = !!cred?.recoveryHash && /^[0-9a-f]{64}$/.test(cred?.recoveryHash)
+  }
   lock.locked = lock.enabled
   lock.ready = true
 }
 
 // ---------- 凭据操作 ----------
-export async function setupPin(pin) {
+export async function setupPin(pin, { keepRecovery = false } = {}) {
   if (!cryptoOk()) throw new Error('当前浏览器环境不支持安全 PIN 校验')
   if (!/^\d{6}$/.test(pin)) throw new Error('PIN 必须是 6 位数字')
   const salt = generateSalt()
   const hash = await deriveHash(pin, salt, PIN_ITERATIONS)
-  const code = generateRecoveryCode()
-  const recoverySalt = generateSalt()
-  const recoveryHash = await deriveHash(normalizeRecoveryCode(code), recoverySalt, PIN_ITERATIONS)
+  const prev = readJSON(CRED_KEY)
+  let code = null
+  let recoveryHash, recoverySalt
+  if (keepRecovery && prev?.recoveryHash) {
+    // 修改 PIN：恢复码原样保留（文案承诺"恢复码不变"就必须不变）
+    recoveryHash = prev.recoveryHash
+    recoverySalt = prev.recoverySalt
+  } else {
+    code = generateRecoveryCode()
+    recoverySalt = generateSalt()
+    recoveryHash = await deriveHash(normalizeRecoveryCode(code), recoverySalt, PIN_ITERATIONS)
+  }
   localStorage.setItem(CRED_KEY, JSON.stringify({
     salt, iter: PIN_ITERATIONS, hash,
     recoveryHash, recoverySalt,
-    paramsVersion: PARAMS_VERSION, createdAt: Date.now(),
+    paramsVersion: PARAMS_VERSION, createdAt: prev?.createdAt || Date.now(),
   }))
   localStorage.removeItem(THROTTLE_KEY)
   markUnlocked()
@@ -77,7 +98,7 @@ export async function setupPin(pin) {
 export async function changePin(oldPin, newPin) {
   const ok = await verifyPin(oldPin)
   if (ok !== true) return false
-  await setupPin(newPin) // 恢复码保持不变（避免用户反复抄写）；需要新码时用"重新生成恢复码"
+  await setupPin(newPin, { keepRecovery: true })
   return true
 }
 

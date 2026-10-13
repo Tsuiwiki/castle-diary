@@ -1,6 +1,6 @@
 <template>
   <div class="view-head">
-    <h2>往日日记</h2>
+    <h2>日记日历</h2>
     <div class="sub">点任意一天，翻开那天的日记；颜色是她那天的心情</div>
   </div>
 

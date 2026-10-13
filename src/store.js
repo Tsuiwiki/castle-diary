@@ -8,7 +8,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.25.1'
+export const APP_VERSION = '0.28.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -37,7 +37,7 @@ function uid() { return 'x' + Date.now().toString(36) + Math.random().toString(3
 // ---------- 初始数据 ----------
 function buildSeed() {
   return {
-    settings: { childName: '', birthday: todayStr(), tts: true },
+    settings: { childName: '', birthday: '', tts: true },
     books: [],
     words: [],
     medicines: [],
@@ -62,7 +62,7 @@ function buildSeed() {
 
 // ---------- 本地状态（响应式，视图只读它） ----------
 export const store = reactive({
-  settings: { childName: '', birthday: todayStr() },
+  settings: { childName: '', birthday: '' },
   books: [],
   words: [],
   medicines: [],
@@ -107,6 +107,20 @@ const dropRuntime = (k, v) => (RUNTIME_KEYS.has(k) ? undefined : v)
 
 // 保存失败时给界面一个醒目的提示（之前只打 console，用户无从得知）
 export const storageError = ref('')
+// 主数据损坏：loadLocal 置位，App 显示恢复页；原文保留在 localStorage 原键里不动
+export const dataCorrupt = ref(false)
+
+// 恢复页用：把损坏原文下载成副本（可能含个人数据，文件名已注明）
+export function downloadCorruptRaw() {
+  const raw = localStorage.getItem(LS_KEY)
+  if (!raw) return
+  const blob = new Blob([raw], { type: 'text/plain' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `城堡日记-损坏数据副本-${todayStr().replaceAll('-', '')}.txt`
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
 let lastPersistFailed = false
 
 // 写图片/录音到 IndexedDB：配额不足时自动重压图片再试一次，仍不行就在页面顶部给出明确提示
@@ -128,6 +142,7 @@ async function putMedia(rec, label = '文件') {
   }
 }
 
+// 返回 true/false 表示是否真正落盘；导入等关键流程据此决定是否报告成功
 export function persistNow() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
@@ -153,10 +168,12 @@ export function persistNow() {
       storageError.value = ''
       lastPersistFailed = false
     }
+    return true
   } catch (e) {
     console.warn('[castle-diary] 本地保存失败（存储空间不足？）', e)
     storageError.value = '刚才的记录没能保存到本机（浏览器存储空间不足）。请先到「设置 → 备份与迁移」导出备份。'
     lastPersistFailed = true
+    return false
   }
 }
 
@@ -204,7 +221,13 @@ async function loadLocal() {
   const raw = localStorage.getItem(LS_KEY)
   let s
   if (raw) {
-    try { s = JSON.parse(raw) } catch { /* 损坏则重置 */ }
+    try {
+      s = JSON.parse(raw)
+    } catch {
+      // 主数据损坏：绝不覆盖原文，进入恢复页由用户决定（导出副本 / 导入备份 / 重置）
+      dataCorrupt.value = true
+      return
+    }
   }
   if (!s?.settings) {
     s = buildSeed()
@@ -339,10 +362,13 @@ async function init() {
 init()
 
 // ---------- 档案 ----------
-export function updateSettings({ childName, birthday, tts }) {
+export function updateSettings(patch) {
+  const { childName, birthday, tts, ...rest } = patch
   if (childName !== undefined) store.settings.childName = childName
   if (birthday) store.settings.birthday = birthday
   if (tts !== undefined) store.settings.tts = !!tts
+  // 其他偏好字段（如季节背景 seasonBg）按补丁合并
+  for (const [k, v] of Object.entries(rest)) if (v !== undefined) store.settings[k] = v
   saveLocal()
 }
 
@@ -1415,15 +1441,17 @@ export async function importBackup(data) {
   const words = (rest.words || []).map(w => ({ mastered: false, ...w })) // 词数据兜底补齐 mastered 字段
   try {
     await idbClear().catch(() => {})
+    let mediaFailed = 0
     for (const c of covers) {
-      if (c.dataUrl) await putMedia({ id: c.id, dataUrl: c.dataUrl }, '图片')
+      if (c.dataUrl && !(await putMedia({ id: c.id, dataUrl: c.dataUrl }, '图片'))) mediaFailed++
     }
+    if (mediaFailed) throw new Error(`${mediaFailed} 张图片/录音没能写入本机存储（可能是空间不足）`)
     applyState({ ...rest, words })
-    persistNow() // 导入这种关键操作立即落盘，不走防抖
+    if (!persistNow()) throw new Error('结构化数据没能写入本机存储') // 立即落盘，不走防抖
   } catch (e) {
-    // 中途失败：回滚 localStorage，IndexedDB 里旧图还在原 id 下的概率很高，刷新后尽量恢复
-    if (rollback) localStorage.setItem(LS_KEY, rollback)
-    throw new Error('导入中断，已尽量恢复原数据，请刷新页面确认后再试')
+    // 任一环节失败：回滚 localStorage 原数据；媒体按原 id 引用，刷新后尽量恢复
+    if (rollback !== null) localStorage.setItem(LS_KEY, rollback)
+    throw new Error(`导入没有完成：${e.message}。已恢复原数据，请检查存储空间后再试。`)
   }
   return { fromDiary: !!payload.__fromDiary }
 }

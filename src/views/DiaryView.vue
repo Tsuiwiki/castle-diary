@@ -12,6 +12,7 @@
           <div class="p-day">{{ dateLabel }}</div>
           <div class="p-age">
             <span v-if="age">{{ childName() }} · {{ age }}</span>
+            <a v-else-if="!store.settings.birthday" class="bday-hint" @click="$emit('go', 'settings')">先填小名和生日，月龄才会长出来 →</a>
             <span v-if="isMonthBirthday" class="p-bday">月龄生日</span>
             <span v-if="dayTerm" class="p-term" :class="'term-' + dayTerm.season" :title="dayTerm.hint">今日 · {{ dayTerm.name }}</span>
             <span v-if="entry.lines.length" class="p-mini-castle" title="城堡的家底" @click="castleLedger = true"><CastleSvg :width="64" /></span>
@@ -338,7 +339,7 @@
       </div>
 
       <div class="rail-card">
-        <div class="rail-title"><Icon name="bell" :size="15" />提醒</div>
+        <div class="rail-title"><Icon name="bell" :size="15" />提醒<a class="rail-more" @click="$emit('go', 'reminders')">查看全部 →</a></div>
         <div v-if="!reminders.length" class="rail-dim">暂时没有要办的事</div>
         <div v-for="(r, i) in reminders" :key="i" class="rail-rem" :class="'lv-' + r.level" @click="$emit('go', r.view)">
           <Icon :name="r.icon" :size="14" /><span>{{ r.text }}</span>
@@ -1106,6 +1107,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.bday-hint { color: var(--brand-deep); text-decoration: underline; cursor: pointer; font-size: 12.5px; }
 .diary-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 18px; align-items: start; }
 @media (max-width: 1100px) { .diary-layout { grid-template-columns: 1fr; } }
 
@@ -1377,6 +1379,8 @@ onBeforeUnmount(() => {
   border-radius: 16px; padding: 13px 14px; box-shadow: 0 2px 10px rgba(240, 147, 75, .07);
 }
 .rail-title { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--brand-deep); margin-bottom: 8px; }
+.rail-more { margin-left: auto; font-size: 11.5px; font-weight: 400; color: var(--ink-3); cursor: pointer; }
+.rail-more:hover { color: var(--brand-deep); }
 .rail-dim { font-size: 12px; color: var(--ink-3); }
 .rail-rem { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; padding: 5px 6px; border-radius: 8px; cursor: pointer; line-height: 1.5; }
 .rail-rem:hover { background: var(--brand-soft); }

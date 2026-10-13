@@ -223,7 +223,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import Icon from '../components/Icon.vue'
-import { store, monthReadStats, readingTrend, addBook, setBookCover, addRead, addWord, nowLocal, WORD_KINDS, BOOK_CATEGORIES, addBookSignal } from '../store.js'
+import { store, monthReadStats, readingTrend, addBook, setBookCover, addRead, addWord, nowLocal, WORD_KINDS, BOOK_CATEGORIES, addBookSignal, updateSettings } from '../store.js'
 import { compressImage } from '../utils/image.js'
 import { ocrRecognize } from '../utils/ocr.js'
 import { genPinyin } from '../utils/pinyin.js'
@@ -352,6 +352,14 @@ async function add() {
 // 候选行可点选更换；顺带识别作者行（著/文/图/绘/译），封面暂存待上架
 const ocrCandidates = ref([])
 
+// 首次使用 OCR 前明确告知：封面图会发送给 OCR.space（第三方）识别；也可选手动录入不用它
+function confirmOcrFirstUse() {
+  if (store.settings.ocrNoticeShown) return true
+  const ok = confirm('封面识别会把这张照片发送给第三方服务 OCR.space 进行文字识别（不经过我们自己的服务器）。\n\n不上传的话也可以直接手动输入书名上架。继续识别吗？')
+  if (ok) updateSettings({ ocrNoticeShown: true })
+  return ok
+}
+
 // 封面营销标语黑名单（命中大幅降权，避免把广告语当书名）
 const MARKETING_RE = /百万|千万|畅销|销量|全\s*\d+\s*册|适合|周岁|\d+\s*[-~到]\s*\d+\s*岁|启蒙|推荐|必读|系列|大奖|获奖|套装|亲子共读|引进|正版|扫码|包邮|编著委员会|出版|社$/
 
@@ -447,13 +455,15 @@ async function processCover(file) {
 async function onCover(e) {
   const file = e.target.files?.[0]
   e.target.value = ''
+  if (!file || !confirmOcrFirstUse()) return
   await processCover(file)
 }
 
 // 拖拽封面上架：图片拖进上架卡片松手即识别
 function onDrop(e) {
   dragOver.value = false
-  processCover(e.dataTransfer?.files?.[0])
+  const f = e.dataTransfer?.files?.[0]
+  if (f && confirmOcrFirstUse()) processCover(f)
 }
 
 // 拖到书架卡片上也一样：先滚到上架表单，再走同一套识别流程

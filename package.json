@@ -1,13 +1,14 @@
 {
   "name": "castle-diary",
   "private": true,
-  "version": "0.25.1",
+  "version": "0.28.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:season": "node scripts/check-season.mjs"
   },
   "dependencies": {
     "pinyin-pro": "^3.29.4",

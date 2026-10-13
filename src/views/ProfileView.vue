@@ -1,6 +1,6 @@
 <template>
   <div class="view-head">
-    <h2>小主人档案</h2>
+    <h2>成长名片</h2>
     <div class="sub">生日 / 出生天数 / 最新身高体重 / 家底一览</div>
   </div>
 

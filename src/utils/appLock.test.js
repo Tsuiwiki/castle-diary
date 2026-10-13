@@ -48,3 +48,36 @@ describe('策略读写与非法值回落', () => {
     expect(getAutoLockPolicy()).toBe('background-5m')
   })
 })
+
+// ---------- P1-1 / P1-2 回归（评审报告用例） ----------
+describe('应用锁凭据行为（P1 回归）', () => {
+  it('修改 PIN 后恢复码凭据保持不变（文案承诺"恢复码不变"）', async () => {
+    const { setupPin, changePin } = await import('./appLock.js')
+    localStorage.removeItem('castle-diary-lock-v1')
+    await setupPin('123456')
+    const before = JSON.parse(localStorage.getItem('castle-diary-lock-v1'))
+    await changePin('123456', '654321')
+    const after = JSON.parse(localStorage.getItem('castle-diary-lock-v1'))
+    expect(after.hash).not.toBe(before.hash)
+    expect(after.recoveryHash).toBe(before.recoveryHash)
+    expect(after.recoverySalt).toBe(before.recoverySalt)
+  }, 20000)
+
+  it('凭据键存在但损坏时 fail-closed：不放行、不静默清除', async () => {
+    const { initAppLock, lock } = await import('./appLock.js')
+    localStorage.setItem('castle-diary-lock-v1', '{broken json')
+    initAppLock()
+    expect(lock.enabled).toBe(true)
+    expect(lock.locked).toBe(true)
+    expect(lock.corrupt).toBe(true)
+    expect(localStorage.getItem('castle-diary-lock-v1')).toBe('{broken json') // 不被清掉
+  })
+
+  it('没有凭据键 = 未开启', async () => {
+    const { initAppLock, lock } = await import('./appLock.js')
+    localStorage.removeItem('castle-diary-lock-v1')
+    initAppLock()
+    expect(lock.enabled).toBe(false)
+    expect(lock.locked).toBe(false)
+  })
+})

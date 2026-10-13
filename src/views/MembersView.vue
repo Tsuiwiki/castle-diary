@@ -1,6 +1,7 @@
 <template>
   <div class="view-head">
-    <h2>家庭成员</h2>
+    <h2>家庭成员管理</h2>
+    <p class="sub">管理家庭成员的名称与关系（用于日记落款等）。当前版本不代表所有记录已支持按成员独立归档。</p>
     <div class="sub">一起守护这座小城堡的人</div>
   </div>
 

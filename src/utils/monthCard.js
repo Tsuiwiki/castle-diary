@@ -100,7 +100,7 @@ export async function renderWeeklyPoster(p) {
   // 只消费 weeklyShare 的 payload（只读 DTO），不再独立读 store
   const PW = 680
   const c0 = document.createElement('canvas')
-  c0.getContext('2d')
+  const mctx = c0.getContext('2d') // 排版测量用（统计行按实际宽度换行）
   const kai = '"KaiTi", "STKaiti", "Kaiti SC", serif'
   const pad = 44
 
@@ -117,8 +117,15 @@ export async function renderWeeklyPoster(p) {
   if (p.photos?.total) statLines.push(`📷 本周共 ${p.photos.total} 张照片${p.photos.total > 4 ? '，这里展示 4 张' : ''}`)
   if (p.base.diaryDays) statLines.push(`✍️ 写了 ${p.base.diaryDays} 篇日记`)
 
+  // 统计行按实际测量宽度换行（长书名/长句不再溢出），行数用换行后的真实值
+  mctx.font = `400 17px ${kai}`
+  const statRows = []
+  for (const line of statLines) {
+    const segs = wrapText(mctx, line, PW - pad * 2 - 16)
+    segs.forEach((seg, i) => statRows.push({ text: seg, first: i === 0 }))
+  }
   let estH = 250 // 头 + 餐盘
-  estH += statLines.length * 34 + 30
+  estH += statRows.length * 34 + 30
   if (p.quotes?.length) estH += p.quotes.slice(0, 3).length * 66 + 60
   if (p.photos?.list.length) estH += 180
   estH += 90 // 尾
@@ -153,13 +160,15 @@ export async function renderWeeklyPoster(p) {
   })
 
   let y = 130 + pr * 2 + 34
-  // 统计
+  // 统计（已按真实宽度换行；续行缩进对齐）
   c.font = `400 17px ${kai}`
-  for (const line of statLines) {
-    c.fillStyle = '#f0934b'
-    c.beginPath(); c.arc(pad + 5, y + 10, 3, 0, Math.PI * 2); c.fill()
+  for (const row of statRows) {
+    if (row.first) {
+      c.fillStyle = '#f0934b'
+      c.beginPath(); c.arc(pad + 5, y + 10, 3, 0, Math.PI * 2); c.fill()
+    }
     c.fillStyle = '#4a3520'
-    c.fillText(line, pad + 16, y)
+    c.fillText(row.text, pad + 16, y)
     y += 34
   }
   // 童言稚语

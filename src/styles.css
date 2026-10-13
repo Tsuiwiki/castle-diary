@@ -3,7 +3,7 @@
   --bg-1: #fff9f0;
   --bg-2: #fdf0e2;
   --bg-3: #edf6ee;
-  --card: rgba(255, 255, 255, .68);
+  --card: rgba(255, 255, 255, .78);
   --card-solid: #fffdf9;
   --ink: #5a4f42;
   --ink-2: #a89880;
@@ -19,7 +19,11 @@
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body {
-  background: linear-gradient(150deg, #fff9f0, #fdeee0 45%, #ecf5ec);
+  /* 四季通透背景：色值唯一真源在 utils/seasonTheme.js，运行时注入变量；用户可固定或关闭 */
+  background:
+    radial-gradient(circle at var(--sglow-pos, 50% 10%), var(--sglow, rgba(232, 168, 96, .45)), transparent 55%),
+    linear-gradient(150deg, var(--sb1, #FFFBF5), var(--sb2, #FEEDD6) 45%, var(--sb3, #FBF2E6));
+  transition: background 1.5s ease;
   font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   color: var(--ink);
 }
@@ -107,7 +111,7 @@ body {
   background: var(--card);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, .75);
+  border: 1px solid rgba(255, 255, 255, .65);
   border-radius: 18px;
   padding: 16px 18px;
   margin-bottom: 14px;
@@ -874,3 +878,26 @@ body {
 }
 .storage-error a { margin-left: auto; color: #c0392b; font-weight: 700; cursor: pointer; text-decoration: underline; }
 .toast.toast-err { color: #c0392b; border-color: rgba(238, 99, 99, .45); white-space: normal; max-width: 90vw; text-align: center; }
+
+/* 关闭季节背景时回退 v0.20 前的经典奶油渐变 */
+body[data-season-bg='off'] { background: linear-gradient(150deg, #fff9f0, #fdeee0 45%, #ecf5ec); }
+
+/* ---------- 自然微风景底纹（远山剪影，随季节变色；关闭季节背景时隐藏） ---------- */
+.nature-scenery { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.scenery-svg { position: absolute; bottom: 0; left: 0; width: 100%; height: 35vh; }
+.hill-layer-1 { fill: var(--hill1, rgba(212, 180, 150, .18)); transition: fill 1.5s ease; }
+.hill-layer-2 { fill: var(--hill2, rgba(191, 153, 120, .25)); transition: fill 1.5s ease; }
+body[data-season-bg='off'] .nature-scenery { display: none; }
+/* 主内容浮于风景之上 */
+.shell { position: relative; z-index: 1; }
+
+/* ---------- 主数据损坏恢复页 ---------- */
+.corrupt-screen { position: fixed; inset: 0; z-index: 190; display: flex; align-items: center; justify-content: center; }
+.corrupt-card { width: 420px; max-width: calc(100vw - 48px); background: var(--card-solid); border: 1px solid rgba(192, 57, 43, .3); border-radius: 18px; padding: 26px 24px; text-align: center; }
+.corrupt-actions .btn-primary, .corrupt-actions .mini-btn { text-align: center; justify-content: center; }
+.corrupt-icon { color: #c0392b; }
+.corrupt-card b { font-size: 17px; display: block; margin: 8px 0; }
+.corrupt-card p { font-size: 13px; color: var(--ink-2); line-height: 1.9; text-align: left; }
+.corrupt-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.corrupt-danger { color: #c0392b; }
+.corrupt-msg { color: #c0392b; font-size: 12px; min-height: 16px; }

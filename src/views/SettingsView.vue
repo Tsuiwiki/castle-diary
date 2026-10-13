@@ -2,12 +2,21 @@
   <div class="view-head">
     <h2>设置</h2>
     <p class="sub">数据只存在本机浏览器 · 换电脑用「导出备份」搬走</p>
+    <nav class="st-toc" aria-label="设置快速定位">
+      <a href="#st-basic">基本信息</a>
+      <a href="#st-pref">使用偏好</a>
+      <a href="#st-theme">界面氛围</a>
+      <a href="#st-lock">安全与隐私</a>
+      <a href="#st-backup">备份与迁移</a>
+      <a href="#st-ocr">功能设置</a>
+      <a href="#st-danger">危险操作</a>
+    </nav>
   </div>
 
   <!-- 孩子档案 -->
-  <div class="card">
+  <div class="card" id="st-basic">
     <div class="card-title">
-      <span class="ct-left"><Icon name="baby" :size="16" />孩子档案</span>
+      <span class="ct-left"><Icon name="baby" :size="16" />基本信息</span>
     </div>
     <div class="form-pair">
       <div class="form-row">
@@ -24,7 +33,7 @@
   </div>
 
   <!-- 陪读偏好 -->
-  <div class="card">
+  <div class="card" id="st-pref">
     <div class="card-title">
       <span class="ct-left"><Icon name="volume" :size="16" />陪读偏好</span>
     </div>
@@ -42,8 +51,20 @@
     <p v-if="ttsOn && !voices.length" style="font-size:12px;color:var(--ink-2);margin-top:8px">未检测到中文语音包，将使用系统默认发音</p>
   </div>
 
+  <!-- 界面氛围：四季通透背景 -->
+  <div class="card" id="st-theme">
+    <div class="card-title"><span class="ct-left"><Icon name="leaf" :size="16" />界面氛围</span></div>
+    <div class="lk-row">
+      <span>季节背景</span>
+      <select :value="store.settings.seasonBg || 'auto'" @change="updateSettings({ seasonBg: $event.target.value })">
+        <option v-for="p in SEASON_BG_PREFS" :key="p.value" :value="p.value">{{ p.label }}</option>
+      </select>
+    </div>
+    <p class="sub" style="margin:8px 0 0">页面底色随二十四节气流转四季；城堡、节气提示与底色同源。纸面（日记、海报）不受影响。</p>
+  </div>
+
   <!-- 安全与隐私：本地 PIN 应用锁 -->
-  <div class="card">
+  <div class="card" id="st-lock">
     <div class="card-title"><span class="ct-left"><Icon name="lock" :size="16" />安全与隐私</span></div>
     <template v-if="!lockState.enabled">
       <p class="sub" style="margin:0 0 8px">
@@ -107,7 +128,7 @@
   </div>
 
   <!-- 数据备份 -->
-  <div class="card">
+  <div class="card" id="st-backup">
     <div class="card-title">
       <span class="ct-left"><Icon name="download" :size="16" />备份与迁移</span>
       <span class="more">封面图也会打包进备份文件</span>
@@ -139,7 +160,7 @@
   </div>
 
   <!-- OCR 设置 -->
-  <div class="card">
+  <div class="card" id="st-ocr">
     <div class="card-title">
       <span class="ct-left"><Icon name="scan" :size="16" />封面识别（OCR）</span>
       <span class="more">{{ hasCustomOcrKey() ? '已用自己的 key' : '正在用公共 demo key' }}</span>
@@ -155,7 +176,7 @@
   </div>
 
   <!-- 危险区 -->
-  <div class="card">
+  <div class="card" id="st-danger">
     <div class="card-title">
       <span class="ct-left"><Icon name="trash" :size="16" />危险区</span>
     </div>
@@ -167,6 +188,7 @@
 import { ref } from 'vue'
 import Icon from '../components/Icon.vue'
 import { store, updateSettings, exportBackup, importBackup, resetAll, todayStr, markExported, autoBackup, enableAutoBackup, resumeAutoBackup, disableAutoBackup } from '../store.js'
+import { SEASON_BG_PREFS } from '../utils/seasonTheme.js'
 import { lock as lockState, AUTO_LOCK_POLICIES, setupPin, changePin, disableAppLock, regenerateRecoveryCode, skipRecoveryCode, getAutoLockPolicy, setAutoLockPolicy, lockNow } from '../utils/appLock.js'
 import { getOcrKey, setOcrKey, hasCustomOcrKey } from '../utils/ocr.js'
 import { speak, listZhVoices, getTtsVoiceName, setTtsVoiceName } from '../utils/tts.js'
@@ -360,6 +382,14 @@ function toast(m) {
 </script>
 
 <style scoped>
+/* 设置页快速定位目录 */
+.st-toc { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; }
+.st-toc a { flex: none; font-size: 12.5px; color: var(--ink-2); background: rgba(255,255,255,.6); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; text-decoration: none; }
+.st-toc a:hover { color: var(--brand-deep); border-color: rgba(240,147,75,.5); }
+.card[id^='st-'] { scroll-margin-top: 14px; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
 .lk-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
 .lk-row:last-of-type { border-bottom: none; }
 .lk-row span { color: var(--ink-2); width: 72px; flex: none; }
