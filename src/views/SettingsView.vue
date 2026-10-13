@@ -171,7 +171,7 @@
     </div>
     <button class="btn-ghost" @click="saveOcrKey">保存 key</button>
     <p style="font-size:12px;color:var(--ink-2);margin-top:10px;line-height:1.7">
-      识别走浏览器直连 OCR.space，不经过任何服务器。key 只保存在本机浏览器。
+      识别时封面照片会由浏览器直接发送给第三方服务 OCR.space（不经过城堡日记自己的服务器；除此之外没有其他服务器）。key 只保存在本机浏览器。
     </p>
   </div>
 

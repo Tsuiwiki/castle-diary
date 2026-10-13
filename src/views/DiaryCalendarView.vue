@@ -135,7 +135,12 @@ function open(date) {
 @media (max-width: 767px) {
   .cal-grid { gap: 4px; }
   .cal-cell { padding: 3px 4px; border-radius: 8px; }
-  .cal-mood { display: none; }
+  /* 心情不整块隐藏，缩成小色点保留信息 */
+  .cal-mood { font-size: 0; width: 9px; height: 9px; padding: 0; top: 5px; right: 5px; }
   .cal-count { font-size: 10px; }
+  /* 顶部改两层：第一行月份 + 统计，第二行翻月按钮；城堡在窄屏隐藏避免拥挤 */
+  .cal-nav { flex-wrap: wrap; align-items: center; row-gap: 8px; }
+  .cal-title { order: -1; width: 100%; display: flex; align-items: baseline; justify-content: space-between; }
+  .cal-castle { display: none; }
 }
 </style>

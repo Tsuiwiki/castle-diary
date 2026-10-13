@@ -327,6 +327,7 @@
             @click="setBy(m.name)"
           >{{ m.name }}</span>
           <span class="pn-hint">记</span>
+          <span class="save-state" :class="{ dim: !saveDirty }">{{ saveStateText }}</span>
         </div>
       </footer>
     </section>
@@ -447,7 +448,7 @@ import {
   addWord, removeWord, setWordAudio, updateWord, addTrip, removeTrip, topPlaces,
   addPhoto, removePhoto, allReminders,
   addGame, addPlay, removePlay, lastPlayDate,
-  allergyOf, dayFoodGroups, babyMonths, backupDaysAgo, persistNow,
+  allergyOf, dayFoodGroups, babyMonths, backupDaysAgo, persistNow, lastSavedAt, storageError,
   SYMPTOMS, illnessOn, illnessDays, startIllness, addSymptoms, removeSymptom, addTemp, removeTemp,
   setIllnessNote, addVisit, removeVisit, illnessMeds, endIllness, reopenIllness, useMedicine, medStatus,
 } from '../store.js'
@@ -536,10 +537,22 @@ const textDraft = ref('')
 let textTimer = null
 watch(date, () => { textDraft.value = getDiary(date.value)?.text || '' }, { immediate: true })
 function queueText() {
+  saveDirty.value = true
   clearTimeout(textTimer)
   const d = date.value
   textTimer = setTimeout(() => saveText(d), 600)
 }
+// 自动保存状态：输入时标脏，真实落盘（lastSavedAt 更新）后才显示已保存
+const saveDirty = ref(false)
+const saveStateText = computed(() => {
+  if (saveDirty.value) return '正在保存到本机…'
+  if (storageError.value) return '保存失败，请检查存储空间并导出备份'
+  if (!lastSavedAt.value) return ''
+  const d = new Date(lastSavedAt.value)
+  return `已保存在本机 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+})
+watch(lastSavedAt, () => { saveDirty.value = false })
+
 function flushText() {
   if (!textTimer) return
   clearTimeout(textTimer)
@@ -1107,6 +1120,8 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.save-state { margin-left: auto; font-size: 11px; color: var(--ink-3); }
+.save-state:not(.dim) { color: #b4743a; }
 .bday-hint { color: var(--brand-deep); text-decoration: underline; cursor: pointer; font-size: 12.5px; }
 .diary-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 18px; align-items: start; }
 @media (max-width: 1100px) { .diary-layout { grid-template-columns: 1fr; } }

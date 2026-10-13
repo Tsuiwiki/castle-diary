@@ -40,7 +40,11 @@
 
   <div v-else class="shell">
     <!-- 左侧边栏（桌面）/ 底部 tabbar（手机，靠 CSS 断点切换形态） -->
-    <nav class="sidebar">
+    <nav class="sidebar" :class="{ expanded: navOpen }">
+      <!-- 平板图标栏：触屏没有悬停提示，提供展开按钮看菜单名 -->
+      <button class="nav-expand" :aria-label="navOpen ? '收起菜单' : '展开菜单'" :title="navOpen ? '收起菜单' : '展开菜单'" @click="navOpen = !navOpen">
+        <Icon :name="navOpen ? 'chevron-left' : 'chevron-right'" :size="15" />
+      </button>
       <div class="brand">
         <Icon name="castle" :size="24" />
         <span class="brand-text">城堡日记<span class="brand-sub">{{ store.settings.childName ? store.settings.childName + '的小城堡' : '一天一页的成长日记' }}</span></span>
@@ -74,7 +78,7 @@
           <a @click="switchView('settings')">去导出备份 →</a>
         </div>
         <!-- 分组入口的子标签 -->
-        <div v-if="currentGroup" class="subtabs">
+        <div v-if="currentGroup && view !== 'collections'" class="subtabs">
           <span
             v-for="c in currentGroup.children" :key="c.key"
             class="subtab" :class="{ on: c.key === 'cards' ? cardOpen : view === c.key }"
@@ -152,6 +156,7 @@ import AppLockOverlay from './components/AppLockOverlay.vue'
 
 // 四季通透背景：复用节气计算，跟随设置（可固定/关闭）
 const seasonKey = ref('autumn')
+const navOpen = ref(false) // 平板端图标栏展开
 watch(() => store.settings.seasonBg, () => {
   applySeasonTheme(store.settings.seasonBg || 'auto', todayStr())
   seasonKey.value = document.body.dataset.seasonBg

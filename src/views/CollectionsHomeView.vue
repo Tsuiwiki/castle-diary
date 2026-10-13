@@ -6,39 +6,39 @@
     </div>
 
     <div class="col-grid">
-      <div class="card col-card">
+      <div class="card col-card" @click="$emit('go', 'shelf')">
         <div class="card-title"><span class="ct-left"><Icon name="library" :size="16" />阅读与识字</span></div>
         <p class="col-desc">书房、词库和翻卡巩固都在这。</p>
         <p class="col-sum">{{ readSum }}</p>
-        <div class="col-links">
+        <div class="col-links" @click.stop>
           <a @click="$emit('go', 'shelf')">书房</a>
           <a @click="$emit('go', 'words')">识字词库</a>
           <a @click="$emit('go', 'cards')">翻卡巩固</a>
         </div>
       </div>
 
-      <div class="card col-card">
+      <div class="card col-card" @click="$emit('go', 'games')">
         <div class="card-title"><span class="ct-left"><Icon name="sparkles" :size="16" />游戏与玩具</span></div>
         <p class="col-desc">玩过的游戏、家里的玩具。</p>
         <p class="col-sum">{{ playSum }}</p>
-        <div class="col-links">
+        <div class="col-links" @click.stop>
           <a @click="$emit('go', 'games')">游戏册</a>
           <a @click="$emit('go', 'toys')">玩具屋</a>
         </div>
       </div>
 
-      <div class="card col-card">
+      <div class="card col-card" @click="$emit('go', 'diet')">
         <div class="card-title"><span class="ct-left"><Icon name="utensils" :size="16" />饮食记录</span></div>
         <p class="col-desc">每天吃了什么，彩虹餐盘在这。</p>
         <p class="col-sum">{{ dietSum }}</p>
-        <div class="col-links"><a @click="$emit('go', 'diet')">饮食册</a></div>
+        <div class="col-links" @click.stop><a @click="$emit('go', 'diet')">饮食册</a></div>
       </div>
 
-      <div class="card col-card">
+      <div class="card col-card" @click="$emit('go', 'trips')">
         <div class="card-title"><span class="ct-left"><Icon name="map-pin" :size="16" />出行足迹</span></div>
         <p class="col-desc">去过的地方和路上记的事。</p>
         <p class="col-sum">{{ tripSum }}</p>
-        <div class="col-links"><a @click="$emit('go', 'trips')">足迹册</a></div>
+        <div class="col-links" @click.stop><a @click="$emit('go', 'trips')">足迹册</a></div>
       </div>
     </div>
   </div>
@@ -82,7 +82,8 @@ const tripSum = computed(() => {
 
 <style scoped>
 .col-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-.col-card { display: flex; flex-direction: column; }
+.col-card { display: flex; flex-direction: column; cursor: pointer; }
+.col-card:hover { border-color: rgba(240, 147, 75, .45); }
 .col-desc { font-size: 12.5px; color: var(--ink-3); margin: 2px 0 6px; }
 .col-sum { font-size: 13px; color: var(--ink-2); margin: 0 0 10px; flex: 1; }
 .col-links { display: flex; gap: 8px; flex-wrap: wrap; }

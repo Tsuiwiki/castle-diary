@@ -8,7 +8,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.28.1'
+export const APP_VERSION = '0.29.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -109,6 +109,8 @@ const dropRuntime = (k, v) => (RUNTIME_KEYS.has(k) ? undefined : v)
 export const storageError = ref('')
 // 主数据损坏：loadLocal 置位，App 显示恢复页；原文保留在 localStorage 原键里不动
 export const dataCorrupt = ref(false)
+// 最近一次成功落盘时间（日记页"已保存在本机"状态用，真实落盘后才更新）
+export const lastSavedAt = ref(0)
 
 // 恢复页用：把损坏原文下载成副本（可能含个人数据，文件名已注明）
 export function downloadCorruptRaw() {
@@ -168,6 +170,7 @@ export function persistNow() {
       storageError.value = ''
       lastPersistFailed = false
     }
+    lastSavedAt.value = Date.now()
     return true
   } catch (e) {
     console.warn('[castle-diary] 本地保存失败（存储空间不足？）', e)
