@@ -8,7 +8,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.29.0'
+export const APP_VERSION = '0.30.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -679,6 +679,8 @@ export function illnessDays(ill, onDate) {
 }
 
 export function startIllness({ date, symptoms = [] }) {
+  // 进行中最多一条：先给上一场补「好了」再开新的（防御历史脏数据，正常流程 DiaryView 贴纸已保证）
+  if (store.illnesses.some(i => !i.end)) return null
   const ill = { id: uid(), start: date || todayStr(), end: '', symptoms: [...symptoms], temps: [], notes: [], visits: [] }
   store.illnesses.unshift(ill)
   saveLocal()
@@ -1200,7 +1202,11 @@ export function allReminders() {
   const today = todayStr()
   // 正在生病（排在最前）
   for (const ill of store.illnesses.filter(i => !i.end)) {
-    list.push({ kind: '生病', icon: 'heart-pulse', level: 'danger', text: `生病第 ${illnessDays(ill, today)} 天（${ill.symptoms.join('、') || '不舒服'}），好了记得点「好了」`, view: 'illness' })
+    const days = illnessDays(ill, today)
+    // 超期降调：病拖太久没点「好了」，大概率是忘了，不再每天红色警报
+    list.push(days > 10
+      ? { kind: '生病', icon: 'heart-pulse', level: 'warn', text: `那场「${ill.symptoms.join('、') || '不舒服'}」的生病记还开着，好了的话去补一下结束日期`, view: 'illness' }
+      : { kind: '生病', icon: 'heart-pulse', level: 'danger', text: `生病第 ${days} 天（${ill.symptoms.join('、') || '不舒服'}），好了记得点「好了」`, view: 'illness' })
   }
   // 药品临期/过期/补货
   for (const m of store.medicines) {

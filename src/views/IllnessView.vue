@@ -11,17 +11,62 @@
     <div class="stat-box"><div class="num top-name">{{ topSymptom || '—' }}</div><div class="lbl">最常见的症状</div></div>
   </div>
 
-  <!-- 新开一张 -->
+  <!-- 进行中卡（常显，每天都要记） -->
+  <div v-for="ill in ongoing" :key="ill.id" class="card ill-card ongoing">
+    <div class="ill-head">
+      <div>
+        <div class="ill-title">
+          <span v-for="sy in ill.symptoms" :key="sy" class="sy-chip">{{ sy }}</span>
+          <span v-if="!ill.symptoms.length" class="sy-chip">不舒服</span>
+        </div>
+        <div class="ill-range">
+          {{ ill.start }} 起 · 第 {{ illnessDays(ill) }} 天
+          <span class="badge badge-danger">正在生病</span>
+        </div>
+        <div v-if="ill.moment" class="ill-moment-peek">💛 {{ ill.moment }}</div>
+      </div>
+      <div class="ill-actions">
+        <button class="mini-btn ghost" @click="goDiary(ill)">在日记里接着记</button>
+        <button class="mini-btn done-btn" @click="finish(ill)">🎉 好了</button>
+        <button class="icon-btn" title="删除这次生病记录" @click="del(ill)"><Icon name="trash" :size="15" /></button>
+      </div>
+    </div>
+
+    <!-- 超期收敛：病拖太久没点「好了」就主动问（可收起） -->
+    <div v-if="illnessDays(ill) > OVERDUE_DAYS && !dismissedOverdue.has(ill.id)" class="overdue-box">
+      <div class="ob-text">已经第 {{ illnessDays(ill) }} 天了——这次是不是早好了？是哪一天好的？</div>
+      <div class="ob-row">
+        <input type="date" v-model="overdueEnd[ill.id]" :min="ill.start" :max="today" />
+        <button class="mini-btn done-btn" :disabled="!overdueEnd[ill.id]" @click="finishAt(ill)">补录这天好的</button>
+        <button class="mini-btn ghost" @click="dismissedOverdue.add(ill.id)">还没好，别问了</button>
+      </div>
+    </div>
+
+    <IllnessDetail :ill="ill" />
+  </div>
+
+  <!-- 进行中唯一性提示 -->
+  <div v-if="ongoing.length > 1" class="card">
+    <div class="overdue-box" style="margin:0">有不只一场「正在生病」。一场一场来：先给早的那场补个「好了」的日期。</div>
+  </div>
+
+  <!-- 新开一张（补记） -->
   <div class="card">
     <div class="card-title"><span class="ct-left"><Icon name="plus" :size="16" />补记一次生病</span><span class="more">日常更推荐在日记里点「不舒服」</span></div>
     <div class="chip-row">
       <span v-for="sy in SYMPTOMS" :key="sy" class="chip" :class="{ sel: form.symptoms.includes(sy) }" @click="toggle(form.symptoms, sy)">{{ sy }}</span>
     </div>
+    <div class="chip-row" style="margin-top:2px">
+      <span class="chip" :class="{ sel: !form.done }" @click="form.done = false">还在生病</span>
+      <span class="chip" :class="{ sel: form.done }" @click="form.done = true">已经好了（补记）</span>
+    </div>
     <div class="inline-add">
       <input v-model.trim="form.other" placeholder="其他症状（可选）" style="flex:1.4" />
       <input v-model="form.start" type="date" :max="today" style="flex:1" title="哪天开始不舒服" />
-      <button class="mini-btn" :disabled="!form.symptoms.length && !form.other" @click="create">开始记录</button>
+      <input v-if="form.done" v-model="form.end" type="date" :min="form.start" :max="today" style="flex:1" title="哪天好的" />
+      <button class="mini-btn" :disabled="(!form.symptoms.length && !form.other) || (form.done && !form.end)" @click="create">开始记录</button>
     </div>
+    <div v-if="form.done && !form.end" class="lk-msg" style="margin-top:6px">选「已经好了」要补一个结束日期</div>
   </div>
 
   <div v-if="!store.illnesses.length" class="card"><div class="empty empty-illus">
@@ -36,93 +81,45 @@
     <div class="empty-sub">希望一直用不上这一页</div>
   </div></div>
 
-  <div v-for="ill in sorted" :key="ill.id" class="card ill-card" :class="{ ongoing: !ill.end }">
-    <div class="ill-head">
+  <!-- 已好的：默认折叠，摘要一行，点开看详情 -->
+  <div v-for="ill in ended" :key="ill.id" class="card ill-card collapsed" :class="{ open: openIds.has(ill.id) }">
+    <div class="ill-head ill-head-click" @click="toggleOpen(ill.id)">
       <div>
         <div class="ill-title">
           <span v-for="sy in ill.symptoms" :key="sy" class="sy-chip">{{ sy }}</span>
           <span v-if="!ill.symptoms.length" class="sy-chip">不舒服</span>
         </div>
         <div class="ill-range">
-          {{ ill.start }}{{ ill.end ? ' ~ ' + ill.end : ' 起' }}
-          · {{ ill.end ? `一共 ${illnessDays(ill)} 天` : `第 ${illnessDays(ill)} 天` }}
-          <span v-if="!ill.end" class="badge badge-danger">正在生病</span>
-          <span v-else class="badge badge-ok">已好</span>
+          {{ ill.start }} ~ {{ ill.end }} · 一共 {{ illnessDays(ill) }} 天
+          <span class="badge badge-ok">已好</span>
+          <span class="ill-fold-hint">{{ openIds.has(ill.id) ? '收起 ▲' : '详情 ▼' }}</span>
         </div>
+        <div v-if="ill.moment && !openIds.has(ill.id)" class="ill-moment-peek">💛 {{ ill.moment.length > 24 ? ill.moment.slice(0, 24) + '…' : ill.moment }}</div>
       </div>
-      <div class="ill-actions">
-        <button class="mini-btn ghost" @click="goDiary(ill)">在日记里接着记</button>
-        <button v-if="!ill.end" class="mini-btn done-btn" @click="finish(ill)">🎉 好了</button>
-        <button v-else class="mini-btn ghost" @click="reopenIllness(ill.id)">其实还没好</button>
+      <div class="ill-actions" @click.stop>
+        <button class="mini-btn ghost" @click="reopenIllness(ill.id)">其实还没好</button>
         <button class="icon-btn" title="删除这次生病记录" @click="del(ill)"><Icon name="trash" :size="15" /></button>
       </div>
     </div>
-
-    <div class="ill-body">
-      <!-- 体温曲线 -->
-      <div class="ill-chart">
-        <div class="ib-title">体温</div>
-        <svg v-if="ill.temps.length" :viewBox="`0 0 ${W} ${H}`" class="temp-svg">
-          <line v-for="rv in REFS" :key="rv" :x1="PADL" :x2="W - 8" :y1="ty(rv)" :y2="ty(rv)" class="ref-line" />
-          <text v-for="rv in REFS" :key="'t' + rv" :x="PADL - 4" :y="ty(rv) + 3" class="ref-txt">{{ rv }}</text>
-          <template v-for="(d, i) in chartDays(ill)" :key="d">
-            <text :x="dx(ill, i)" :y="H - 4" class="day-txt">{{ d.slice(5).replace('-', '/') }}</text>
-          </template>
-          <polyline :points="tempPoints(ill)" class="temp-line" />
-          <circle
-            v-for="t in ill.temps" :key="t.time" r="3"
-            :cx="tx(ill, t.time)" :cy="ty(t.value)"
-            :class="t.value >= 38.5 ? 'pt-hot' : t.value >= 37.3 ? 'pt-warm' : 'pt-ok'"
-          ><title>{{ t.time.replace('T', ' ') }}  {{ t.value.toFixed(1) }}℃</title></circle>
-        </svg>
-        <div v-else class="ib-empty">没记体温</div>
-        <div v-if="ill.temps.length" class="ib-sub">最高 {{ maxTemp(ill).toFixed(1) }}℃ · 共量了 {{ ill.temps.length }} 次</div>
-      </div>
-
-      <!-- 最让人心疼 / 坚强的一个瞬间 -->
-      <div class="ill-moment">
-        <div class="ib-title">最让人心疼（或坚强）的一个瞬间</div>
-        <input
-          class="moment-input"
-          :value="ill.moment || ''"
-          placeholder="比如：烧得小脸通红，还是冲妈妈笑了笑"
-          @change="e => setIllnessMoment(ill.id, e.target.value)"
-        />
-        <div class="moment-sub">写在病好的那天日记里，几年后回看，这是比体温数字更动人的东西</div>
-      </div>
-      <!-- 每天 -->
-      <div class="ill-days">
-        <div class="ib-title">每一天</div>
-        <div v-for="d in dayRows(ill)" :key="d.date" class="day-row">
-          <span class="dr-date">{{ d.date.slice(5).replace('-', '/') }}<i>第 {{ d.n }} 天</i></span>
-          <span class="dr-body">
-            <span v-if="d.max" :class="['dr-temp', d.max >= 38.5 ? 'hot' : d.max >= 37.3 ? 'warm' : '']">{{ d.max.toFixed(1) }}℃</span>
-            <span v-for="m in d.meds" :key="m.name" class="dr-med">💊 {{ m.name }}<template v-if="m.n > 1"> ×{{ m.n }}</template></span>
-            <span v-if="d.visit" class="dr-visit">🏥 去医院</span>
-            <span v-if="d.note" class="dr-note">{{ d.note }}</span>
-            <span v-if="!d.max && !d.meds.length && !d.visit && !d.note" class="dr-none">没记</span>
-            <span v-if="d.date === ill.end" class="dr-end">🎉 好了</span>
-          </span>
-        </div>
-      </div>
-    </div>
+    <IllnessDetail v-if="openIds.has(ill.id)" :ill="ill" />
   </div>
 
   <div v-if="toast" class="toast">{{ toast }}</div>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onBeforeUnmount } from 'vue'
 import Icon from '../components/Icon.vue'
+import IllnessDetail from '../components/IllnessDetail.vue'
 import {
   store, todayStr, diaryDate, SYMPTOMS, illnessDays, startIllness, endIllness, reopenIllness,
-  removeIllness, illnessMeds, setIllnessMoment,
+  removeIllness,
 } from '../store.js'
 
 const emit = defineEmits(['go'])
 const today = todayStr()
-const p2 = n => String(n).padStart(2, '0')
-const fmt = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`
+
+const OVERDUE_DAYS = 10 // 超过这么多天还没点「好了」就主动问
 
 const toast = ref('')
 let toastTimer = null
@@ -131,6 +128,7 @@ function showToast(msg) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => (toast.value = ''), 2400)
 }
+onBeforeUnmount(() => clearTimeout(toastTimer))
 function toggle(list, v) {
   const i = list.indexOf(v)
   if (i >= 0) list.splice(i, 1)
@@ -138,8 +136,8 @@ function toggle(list, v) {
 }
 
 // ---------- 统计 ----------
-const sorted = computed(() => [...store.illnesses].sort((a, b) => (!a.end ? 0 : 1) - (!b.end ? 0 : 1) || b.start.localeCompare(a.start)))
-const ongoing = computed(() => store.illnesses.filter(i => !i.end))
+const ongoing = computed(() => store.illnesses.filter(i => !i.end).sort((a, b) => a.start.localeCompare(b.start)))
+const ended = computed(() => store.illnesses.filter(i => i.end).sort((a, b) => b.start.localeCompare(a.start)))
 const yearList = computed(() => store.illnesses.filter(i => i.start.slice(0, 4) === today.slice(0, 4)))
 const avgDays = computed(() => {
   const done = store.illnesses.filter(i => i.end)
@@ -152,13 +150,33 @@ const topSymptom = computed(() => {
   return Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] || ''
 })
 
+// ---------- 折叠 ----------
+const openIds = reactive(new Set())
+function toggleOpen(id) {
+  if (openIds.has(id)) openIds.delete(id)
+  else openIds.add(id)
+}
+
+// ---------- 超期补录 ----------
+const overdueEnd = reactive({})
+const dismissedOverdue = reactive(new Set())
+function finishAt(ill) {
+  const d = overdueEnd[ill.id]
+  if (!d) return
+  endIllness(ill.id, d)
+  showToast(`🎉 记上了：${ill.start} ~ ${d}，一共 ${illnessDays(ill)} 天`)
+}
+
 // ---------- 新开一张 ----------
-const form = reactive({ symptoms: [], other: '', start: today })
+const form = reactive({ symptoms: [], other: '', start: today, done: false, end: '' })
 function create() {
   const list = [...form.symptoms, ...(form.other ? [form.other] : [])]
   if (!list.length) return
-  startIllness({ date: form.start, symptoms: list })
-  Object.assign(form, { symptoms: [], other: '', start: today })
+  if (form.done && !form.end) return
+  const ill = startIllness({ date: form.start, symptoms: list })
+  if (!ill) { showToast('还有一场病没点「好了」，先结束那场再开新的'); return }
+  if (form.done) endIllness(ill.id, form.end)
+  Object.assign(form, { symptoms: [], other: '', start: today, done: false, end: '' })
   showToast('开好了，之后在日记里点「不舒服」接着记体温和用药')
 }
 
@@ -175,96 +193,24 @@ function goDiary(ill) {
   diaryDate.value = ill.end && ill.end < today ? ill.end : today
   emit('go', 'diary')
 }
-
-// ---------- 每一天 ----------
-function daysOf(ill) {
-  const out = []
-  const end = ill.end || today
-  const d = new Date(ill.start + 'T00:00:00')
-  while (fmt(d) <= end && out.length < 60) {
-    out.push(fmt(d))
-    d.setDate(d.getDate() + 1)
-  }
-  return out
-}
-function dayRows(ill) {
-  const meds = illnessMeds(ill.id)
-  return daysOf(ill).map((date, i) => {
-    const temps = ill.temps.filter(t => t.time.slice(0, 10) === date)
-    const mc = {}
-    for (const m of meds) if (m.time.slice(0, 10) === date) mc[m.name] = (mc[m.name] || 0) + 1
-    return {
-      date, n: i + 1,
-      max: temps.length ? Math.max(...temps.map(t => t.value)) : 0,
-      meds: Object.entries(mc).map(([name, n]) => ({ name, n })),
-      visit: ill.visits.some(v => v.date === date),
-      note: ill.notes.find(n => n.date === date)?.text || '',
-    }
-  }).reverse()
-}
-const maxTemp = ill => ill.temps.reduce((a, t) => Math.max(a, t.value), 0)
-
-// ---------- 体温曲线 ----------
-const W = 360, H = 150, PADL = 30, PADT = 10, PADB = 20
-const REFS = [37.3, 38.5]
-const LO = 35.5, HI = 40.5
-const ty = v => PADT + (HI - Math.min(HI, Math.max(LO, v))) / (HI - LO) * (H - PADT - PADB)
-const chartDays = ill => daysOf(ill)
-function tx(ill, time) {
-  const days = daysOf(ill)
-  const t0 = new Date(days[0] + 'T00:00:00').getTime()
-  const t1 = new Date(days[days.length - 1] + 'T23:59:00').getTime()
-  const t = new Date(time).getTime()
-  return PADL + (t - t0) / Math.max(1, t1 - t0) * (W - PADL - 12)
-}
-function dx(ill, i) {
-  const n = daysOf(ill).length
-  return PADL + (i + 0.5) / n * (W - PADL - 12) - 12
-}
-const tempPoints = ill => ill.temps.map(t => `${tx(ill, t.time).toFixed(1)},${ty(t.value).toFixed(1)}`).join(' ')
 </script>
 
 <style scoped>
 .top-name { font-size: 16px !important; line-height: 29px; }
 .stat-box.alert .num { color: #c0392b; }
 .ill-card.ongoing { border: 1px solid rgba(224, 85, 85, .4); }
+.ill-card.collapsed { padding-bottom: 14px; }
 .ill-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.ill-head-click { cursor: pointer; }
 .ill-title { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 4px; }
 .sy-chip { background: rgba(229, 103, 90, .12); color: #b8452c; border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 700; }
 .ill-range { font-size: 12.5px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ill-fold-hint { color: var(--ink-3); font-size: 11.5px; }
 .ill-actions { display: flex; align-items: center; gap: 6px; }
+.ill-moment-peek { font-size: 12.5px; color: #8a6d3b; margin-top: 5px; font-family: "KaiTi", "STKaiti", serif; }
 .done-btn { background: linear-gradient(135deg, #7fcfb4, #2aa082); box-shadow: 0 2px 8px rgba(42, 160, 130, .3); }
-.ill-body { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 18px; margin-top: 12px; }
-.ill-moment { margin-bottom: 14px; }
-.moment-input {
-  width: 100%; box-sizing: border-box; border: 1px dashed rgba(240, 147, 75, .5); border-radius: 10px;
-  padding: 8px 11px; font-size: 14px; font-family: "KaiTi", "STKaiti", "Kaiti SC", serif;
-  background: #fffdf6; color: #4a3520; outline: none;
-}
-.moment-input:focus { border-color: var(--brand); border-style: solid; }
-.moment-sub { font-size: 11px; color: var(--ink-3); margin-top: 4px; }
-@media (max-width: 900px) { .ill-body { grid-template-columns: 1fr; } }
-.ib-title { font-size: 12px; font-weight: 700; color: var(--ink-2); margin-bottom: 6px; }
-.ib-empty { font-size: 12px; color: var(--ink-3); padding: 20px 0; }
-.ib-sub { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
-.temp-svg { width: 100%; height: auto; background: #fffdf9; border: 1px solid var(--line); border-radius: 10px; }
-.ref-line { stroke: rgba(224, 85, 85, .35); stroke-dasharray: 4 3; stroke-width: 1; }
-.ref-txt { font-size: 9px; fill: #c0392b; text-anchor: end; }
-.day-txt { font-size: 9px; fill: var(--ink-3); }
-.temp-line { fill: none; stroke: #e5675a; stroke-width: 1.8; stroke-linejoin: round; }
-.pt-hot { fill: #d0463c; }
-.pt-warm { fill: #f0934b; }
-.pt-ok { fill: #2aa082; }
-.day-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
-.day-row:last-child { border-bottom: none; }
-.dr-date { width: 64px; flex: none; font-weight: 700; display: flex; flex-direction: column; line-height: 1.3; }
-.dr-date i { font-style: normal; font-size: 11px; font-weight: 400; color: var(--ink-3); }
-.dr-body { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.dr-temp { border-radius: 999px; padding: 0 8px; background: #eef6f2; color: #1f7f6b; font-variant-numeric: tabular-nums; }
-.dr-temp.warm { background: #fff1e0; color: #b0601c; }
-.dr-temp.hot { background: #fde6e2; color: #c0392b; }
-.dr-med, .dr-visit { font-size: 12px; color: var(--ink); }
-.dr-note { color: var(--ink-2); }
-.dr-none { color: var(--ink-3); font-size: 12px; }
-.dr-end { color: #1f7f6b; font-weight: 700; }
+.overdue-box { background: #fff6e8; border: 1px solid rgba(240, 168, 90, .4); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+.ob-text { font-size: 13px; color: #8a5a20; margin-bottom: 8px; }
+.ob-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ob-row input { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
 </style>

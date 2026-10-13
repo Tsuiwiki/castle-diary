@@ -831,6 +831,7 @@ function startSick() {
   const list = [...sick.symptoms, ...(sick.other ? [sick.other] : [])]
   if (!list.length) return
   const ill = startIllness({ date: date.value, symptoms: list })
+  if (!ill) { showToast('上一场病还没点「好了」，先在那张卡里结束它'); return }
   if (sick.temp) addTemp(ill.id, sick.temp, sickTime())
   stamp('生病', '开始不舒服，抱抱她')
   showToast('开了一张生病记，好了记得点「好了」')
