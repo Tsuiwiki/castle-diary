@@ -8,7 +8,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.30.0'
+export const APP_VERSION = '0.31.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -1249,6 +1249,7 @@ export function babyDayOfLife(onDate) {
 }
 
 // 汇总 [startDate, endDate]（YYYY-MM-DD，闭区间）内各模块发生了什么
+// 区间统计唯一数据源。注意：milestones 返回全量；「餐桌/游戏」来源的自动条目由展示层过滤（monthIndex、周报亮点同口径）
 export function rangeReport(startDate, endDate) {
   const inRange = d => d && d >= startDate && d <= endDate
   // 阅读

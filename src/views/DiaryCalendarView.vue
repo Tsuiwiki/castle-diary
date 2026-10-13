@@ -1,7 +1,7 @@
 <template>
   <div class="view-head">
     <h2>日记日历</h2>
-    <div class="sub">点任意一天，翻开那天的日记；颜色是她那天的心情</div>
+    <div class="sub">点一天先看看那天记了什么，想细看再翻开日记；颜色是她那天的心情</div>
   </div>
 
   <div class="card">
@@ -9,11 +9,11 @@
       <button class="mini-btn ghost" @click="shift(-1)"><Icon name="chevron-left" :size="14" />上个月</button>
       <div class="cal-title">
         <b>{{ year }} 年 {{ month }} 月</b>
-        <span class="cal-sum">写了 {{ writtenDays }} 天<template v-if="photoCount"> · {{ photoCount }} 张照片</template></span>
+        <span class="cal-sum">本月记了 {{ writtenDays }} 天</span>
       </div>
       <div class="cal-castle" :title="`城堡：月龄生日加一层，词添砖、里程碑插旗、读完的书点灯、去过的地方种树；随季节换装`">
         <CastleSvg :width="118" :date="`${ym}-15`" />
-        <span class="cal-season">{{ seasonName }} · 本月写了 {{ writtenDays }} 天</span>
+        <span class="cal-season">{{ seasonName }}</span>
       </div>
       <button class="mini-btn ghost" :disabled="isCurrentMonth" @click="shift(1)">下个月<Icon name="chevron-right" :size="14" /></button>
     </div>
@@ -23,9 +23,9 @@
       <div
         v-for="(c, i) in cells" :key="i"
         class="cal-cell"
-        :class="{ blank: !c, future: c && c.future, today: c && c.isToday, has: c && c.info }"
+        :class="{ blank: !c, future: c && c.future, today: c && c.isToday, has: c && c.info, sel: c && c.date === picked }"
         :style="c && c.info?.photo ? { backgroundImage: `url(${c.info.photo})` } : null"
-        @click="c && !c.future && open(c.date)"
+        @click="c && !c.future && pick(c.date)"
       >
         <template v-if="c">
           <span class="cal-d">{{ c.day }}</span>
@@ -33,6 +33,23 @@
           <span v-if="c.info?.count" class="cal-count">{{ c.info.count }} 条</span>
         </template>
       </div>
+    </div>
+
+    <!-- 选中那天的轻摘要 -->
+    <div v-if="picked" class="day-peek">
+      <div class="dp-head">
+        <b>{{ picked.slice(5).replace('-', '/') }}</b>
+        <span v-if="peekMood" class="dp-mood" :style="{ background: peekMood.color }">{{ peekMood.key }}</span>
+        <span class="dp-count">{{ peekLines.length ? peekAll + ' 条记录' : '' }}</span>
+        <button class="dp-close" aria-label="收起" @click="picked = ''">✕</button>
+      </div>
+      <template v-if="peekLines.length || peekPhotos.length">
+        <div v-for="(l, i) in peekLines" :key="i" class="dp-line">{{ l }}</div>
+        <div v-if="peekMore" class="dp-line dp-more">…等 {{ peekAll }} 条</div>
+        <div v-if="peekPhotos.length" class="dp-photos"><img v-for="p in peekPhotos" :key="p.id" :src="p.imageUrl" /></div>
+      </template>
+      <div v-else class="dp-line dp-more">这天还没记，去补上 →</div>
+      <button class="mini-btn dp-open" @click="open(picked)">翻开这一天的日记 →</button>
     </div>
 
     <div class="cal-legend">
@@ -44,8 +61,8 @@
 <script setup>
 import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
-import { store, MOODS, diaryDate, todayStr } from '../store.js'
-import { monthIndex } from '../utils/diaryText.js'
+import { store, MOODS, diaryDate, todayStr, getDiary } from '../store.js'
+import { monthIndex, dayLines } from '../utils/diaryText.js'
 import CastleSvg from '../components/CastleSvg.vue'
 import { seasonOf } from '../utils/solarTerms.js'
 
@@ -64,7 +81,23 @@ const isCurrentMonth = computed(() => ym.value === todayStr().slice(0, 7))
 
 function shift(n) {
   cursor.value = new Date(year.value, cursor.value.getMonth() + n, 1)
+  picked.value = '' // 翻月收起摘要
 }
+
+// ---------- 选中那天的轻摘要 ----------
+const picked = ref('')
+function pick(date) {
+  picked.value = picked.value === date ? '' : date
+}
+const peekMood = computed(() => {
+  const m = getDiary(picked.value)?.mood
+  return m ? MOODS.find(x => x.key === m) : null
+})
+const peekAllLines = computed(() => picked.value ? (dayLines(picked.value).lines || []).map(l => l.tokens.map(t => t.v).join('')).filter(Boolean) : [])
+const peekAll = computed(() => peekAllLines.value.length)
+const peekLines = computed(() => peekAllLines.value.slice(0, 6))
+const peekMore = computed(() => peekAll.value > 6)
+const peekPhotos = computed(() => picked.value ? store.photos.filter(p => p.date === picked.value && p.imageUrl).slice(0, 3) : [])
 
 const index = computed(() => monthIndex(ym.value))
 const writtenDays = computed(() => Object.keys(index.value).length)
@@ -130,6 +163,18 @@ function open(date) {
   position: absolute; left: 6px; bottom: 6px; font-size: 11px; color: var(--brand-deep);
   background: rgba(255, 255, 255, .88); border-radius: 6px; padding: 0 5px;
 }
+.cal-cell.sel { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(240, 147, 75, .35); }
+.day-peek { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.dp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.dp-head b { font-size: 15px; }
+.dp-mood { color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+.dp-count { font-size: 11.5px; color: var(--ink-3); }
+.dp-close { margin-left: auto; border: none; background: none; color: var(--ink-3); cursor: pointer; font-size: 13px; padding: 2px 6px; }
+.dp-line { font-size: 13px; color: var(--ink); line-height: 1.7; }
+.dp-more { color: var(--ink-3); font-size: 12px; }
+.dp-photos { display: flex; gap: 6px; margin-top: 6px; }
+.dp-photos img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; }
+.dp-open { margin-top: 10px; }
 .cal-legend { display: flex; gap: 14px; justify-content: center; margin-top: 14px; font-size: 12px; color: var(--ink-2); flex-wrap: wrap; }
 .cal-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
 @media (max-width: 767px) {

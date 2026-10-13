@@ -121,7 +121,7 @@
       </div>
 
       <div class="card" v-if="report.healths.length || report.medUses || report.illnesses.length">
-        <div class="card-title"><span class="ct-left"><Icon name="heart-pulse" :size="16" />健康</span></div>
+        <div class="card-title"><span class="ct-left"><Icon name="heart-pulse" :size="16" />这周身体</span></div>
         <div v-for="(i, k) in report.illnesses" :key="'ill' + k" class="wk-line">
           🤒 {{ i.symptoms.join('、') || '不舒服' }} · {{ i.ended ? `${i.days} 天好了` : `已经第 ${i.days} 天` }}<template v-if="i.maxTemp"> · 最高 {{ i.maxTemp.toFixed(1) }}℃</template>
         </div>
@@ -140,7 +140,12 @@
       <span class="ct-left"><Icon name="share" :size="16" />发给家人</span>
       <button class="mini-btn" @click="openShare"><Icon name="copy" :size="13" />复制周报文本</button>
     </div>
-    <pre class="wk-export">{{ exportText }}</pre>
+    <div class="sub" style="margin:0">点按钮选好想分享的内容，生成预览后再复制文本或保存图片</div>
+  </div>
+
+  <!-- 页底出口：日历找某天、年度看全年 -->
+  <div class="wk-exit">
+    想找某一天 → <a @click="$emit('go', 'calendar')">日记日历</a>　·　想看全年 → <a @click="$emit('go', 'year')">年度回顾</a>
   </div>
 
   <!-- 周报分享预览：四项开关 → 同一份筛选数据 → 图与文本 -->
@@ -220,7 +225,8 @@ const report = computed(() => rangeReport(weekRange.value.start, weekRange.value
 const highlights = computed(() => {
   const r = report.value
   const list = []
-  for (const m of r.milestones.filter(m => m.source !== '餐桌')) {
+  // 里程碑口径与月历一致：排除餐桌/游戏自动产生的条目
+  for (const m of r.milestones.filter(m => !['餐桌', '游戏'].includes(m.source))) {
     list.push({ icon: 'flag', text: `达成里程碑「${m.title}」` })
   }
   if (r.firstTastes.length) list.push({ icon: 'bowl', text: `第一次吃 ${r.firstTastes.join('、')}` })
@@ -231,25 +237,6 @@ const highlights = computed(() => {
   return list.slice(0, 4)
 })
 
-const exportText = computed(() => { // 仅用于本页展示；分享走下方 share 流程
-  const r = report.value
-  const name = store.settings.childName || '宝宝'
-  const day = babyDayOfLife(weekRange.value.end)
-  const lines = [`📜 ${name}的成长周报（${weekRange.value.start} ~ ${weekRange.value.end}${day ? `，出生第 ${day - 6}~${day} 天` : ''}）`, '']
-  if (r.readCount) lines.push(`📚 阅读：${r.readCount} 次共 ${r.readMinutes} 分钟，${r.readDays} 天有阅读${r.topBook ? `，最爱《${r.topBook.title}》` : ''}`)
-  const quotes = r.newWords.filter(w => w.funny)
-  if (quotes.length) lines.push(`✨ 童言稚语：${quotes.map(w => `“${w.word}”`).join('、')}`)
-  if (r.newWords.length) lines.push(`🗣 新词：${r.newWords.length} 个（${r.newWords.slice(0, 10).map(w => w.word).join(' ')}${r.newWords.length > 10 ? '…' : ''}）`)
-  if (r.mealCount) lines.push(`🍚 餐桌：记了 ${r.mealCount} 餐${r.firstTastes.length ? `，第一次吃 ${r.firstTastes.join('、')}` : ''}`)
-  if (r.playCount) lines.push(`🧩 游戏：玩了 ${r.playCount} 次（${r.games.slice(0, 5).map(g => g.name + (g.count > 1 ? '×' + g.count : '')).join('、')}）`)
-  for (const m of r.milestones) lines.push(`🏁 ${m.date.slice(5)} ${m.title}`)
-  for (const i of r.illnesses) lines.push(`🤒 生病：${i.symptoms.join('、') || '不舒服'}，${i.ended ? `${i.days} 天好了` : `已经第 ${i.days} 天`}${i.maxTemp ? `，最高 ${i.maxTemp.toFixed(1)}℃` : ''}`)
-  if (r.healths.length) lines.push(`❤️ 健康：${r.healths.map(h => h.kind + '·' + h.title).join('；')}`)
-  if (r.medUses) lines.push(`💊 用药 ${r.medUses} 次`)
-  if (lines.length <= 2) lines.push('这周还没有记录，下周加油～')
-  lines.push('', '—— 来自城堡日记')
-  return lines.join('\n')
-})
 
 function shiftWeek(d) { weekOffset.value += d }
 
@@ -359,6 +346,8 @@ async function copyShareText() {
 </script>
 
 <style scoped>
+.wk-exit { text-align: center; font-size: 12.5px; color: var(--ink-2); margin: 14px 0 4px; }
+.wk-exit a { color: var(--brand-deep); text-decoration: underline; cursor: pointer; }
 .share-sheet { max-width: 560px; }
 .ps-week { font-size: 12px; color: var(--ink-2); margin-left: 10px; margin-right: auto; }
 .sh-opts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }

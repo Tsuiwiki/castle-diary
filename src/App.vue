@@ -98,7 +98,7 @@
         <IllnessView v-else-if="view === 'illness'" @go="go" />
         <HealthView v-else-if="view === 'health'" />
         <WeeklyView v-else-if="view === 'weekly'" @go="go" />
-        <YearView v-else-if="view === 'year'" />
+        <YearView v-else-if="view === 'year'" @go="go" />
         <AlbumView v-else-if="view === 'album'" />
         <TripsView v-else-if="view === 'trips'" />
         <ProfileView v-else-if="view === 'profile'" @go="go" />

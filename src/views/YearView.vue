@@ -30,14 +30,20 @@
     </div>
   </div>
 
-  <!-- 年度总览 -->
-  <div class="stat-grid">
-    <div class="stat-cell"><b>{{ report.readMinutes }}</b><span>阅读分钟</span></div>
-    <div class="stat-cell"><b>{{ report.readCount }}</b><span>阅读次数</span></div>
-    <div class="stat-cell"><b>{{ report.bookTitles.length }}</b><span>读过的书</span></div>
-    <div class="stat-cell"><b>{{ report.newWords.length }}</b><span>新学字词</span></div>
-    <div class="stat-cell"><b>{{ report.firstTastes.length }}</b><span>首尝食物</span></div>
-    <div class="stat-cell"><b>{{ report.milestones.length }}</b><span>里程碑</span></div>
+  <!-- 年度概括（一句话；具体数字去周报/分册看） -->
+  <div class="card">
+    <div class="year-summary">这一年：记了 <b>{{ yearDays }}</b> 天日记 · 读了 <b>{{ report.bookTitles.length }}</b> 本书 · 会了 <b>{{ report.newWords.length }}</b> 个词 · 尝了 <b>{{ report.firstTastes.length }}</b> 种新食物 · <b>{{ report.milestones.length }}</b> 个成长节点</div>
+  </div>
+
+  <!-- 年度精选照片：每月一张（里程碑照片优先） -->
+  <div v-if="yearPhotos.length" class="card">
+    <div class="card-title"><span class="ct-left"><Icon name="camera" :size="16" />这一年的照片</span><span class="more">每月一张</span></div>
+    <div class="year-photos">
+      <div v-for="p in yearPhotos" :key="p.id" class="yp-cell" @click="lightbox = p">
+        <img :src="p.imageUrl" loading="lazy" />
+        <span class="yp-month">{{ Number(p.date.slice(5, 7)) }} 月</span>
+      </div>
+    </div>
   </div>
 
   <!-- 月度大事记 12 格 -->
@@ -47,12 +53,11 @@
       <div v-for="m in monthly" :key="m.month" class="month-cell" :class="{ empty: m.empty, future: m.future }">
         <div class="month-head">{{ m.month }} 月</div>
         <template v-if="!m.empty && !m.future">
-          <div v-if="m.readMinutes" class="month-line">📚 {{ m.readMinutes }} 分钟</div>
-          <div v-for="t in m.items.slice(0, 3)" :key="t" class="month-line">{{ t }}</div>
+          <div class="month-line">{{ m.headline }}</div>
           <div v-if="m.more" class="month-line dim">… 还有 {{ m.more }} 件</div>
         </template>
         <div v-else-if="m.future" class="month-line dim">还没到</div>
-        <div v-else class="month-line dim">没有记录</div>
+        <div v-else class="month-line dim">这个月安安静静</div>
       </div>
     </div>
   </div>
@@ -61,11 +66,20 @@
   <div class="card" v-if="report.milestones.length">
     <div class="card-title"><span class="ct-left"><Icon name="flag" :size="16" />这一年的里程碑</span><span class="more">{{ report.milestones.length }} 个</span></div>
     <div class="tl">
-      <div v-for="m in report.milestones" :key="m.id" class="tl-item">
+      <div v-for="m in report.milestones" :key="m.id" class="tl-item tl-click" title="去看这一天" @click="openDay(m.date)">
         <span class="tl-date">{{ m.date }}</span>
         <span class="tl-dot"></span>
         <span class="tl-body">{{ m.title }}<span v-if="m.source" class="badge badge-info" style="margin-left:6px">{{ m.source }}</span></span>
       </div>
+    </div>
+  </div>
+
+  <!-- 照片大图 -->
+  <div v-if="lightbox" class="lb-mask" @click="lightbox = null">
+    <div class="lb-box" @click.stop>
+      <img :src="lightbox.imageUrl" />
+      <div class="lb-cap">{{ lightbox.date }}<template v-if="lightbox.note"> · {{ lightbox.note }}</template></div>
+      <button class="mini-btn ghost" @click="lightbox = null">关闭</button>
     </div>
   </div>
 
@@ -81,14 +95,41 @@
 <script setup>
 import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
-import { store, rangeReport, babyDayOfLife } from '../store.js'
+import { store, rangeReport, babyDayOfLife, diaryDate } from '../store.js'
+import { monthIndex } from '../utils/diaryText.js'
 
 const nowYear = new Date().getFullYear()
 const year = ref(nowYear)
+const emit = defineEmits(['go'])
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
 
 function p2(n) { return String(n).padStart(2, '0') }
 
 const report = computed(() => rangeReport(`${year.value}-01-01`, `${year.value}-12-31`))
+// 这一年有内容的天数（与日历页同一口径 monthIndex）
+const yearDays = computed(() => {
+  let n = 0
+  for (let m = 1; m <= 12; m++) n += Object.keys(monthIndex(`${year.value}-${p2(m)}`)).length
+  return n
+})
+
+// 年度精选照片：每月一张（该月里程碑照片优先，否则首张）
+const yearPhotos = computed(() => {
+  const byMonth = new Map()
+  const milestoneIds = new Set(report.value.milestones.map(m => m.photoId).filter(Boolean))
+  for (const p of store.photos) {
+    if (!p.imageUrl || !p.date || p.date.slice(0, 4) !== String(year.value)) continue
+    const mo = p.date.slice(0, 7)
+    const cur = byMonth.get(mo)
+    if (!cur) byMonth.set(mo, p)
+    else if (milestoneIds.has(p.id) && !milestoneIds.has(cur.id)) byMonth.set(mo, p)
+  }
+  return [...byMonth.values()].sort((a, b) => a.date.localeCompare(b.date))
+})
+const lightbox = ref(null)
 
 // 月度大事记：每月聚合里程碑 + 首尝 + 阅读分钟
 const monthly = computed(() => {
@@ -105,9 +146,8 @@ const monthly = computed(() => {
     const future = year.value === nowYear && m > now.getMonth() + 1
     cells.push({
       month: m,
-      readMinutes: r.readMinutes,
-      items: items.slice(0, 3),
-      more: items.length > 3 ? items.length - 3 : 0,
+      headline: items[0] || (r.readMinutes ? `📚 读了 ${r.readMinutes} 分钟` : ''),
+      more: items.length > 1 ? items.length - 1 : 0,
       empty: !r.readMinutes && !items.length,
       future,
     })
@@ -144,3 +184,17 @@ const day1000 = computed(() => {
   return { passed: false, date, daysLeft: 1000 - today }
 })
 </script>
+<style scoped>
+.year-summary { font-size: 14.5px; line-height: 2; text-align: center; color: var(--ink-2); font-family: "KaiTi", "STKaiti", serif; }
+.year-summary b { color: var(--brand-deep); font-size: 17px; padding: 0 2px; }
+.year-photos { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.yp-cell { flex: none; width: 92px; cursor: pointer; text-align: center; }
+.yp-cell img { width: 92px; height: 92px; object-fit: cover; border-radius: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(150,100,40,.15); }
+.yp-month { font-size: 11px; color: var(--ink-3); display: block; margin-top: 3px; }
+.tl-click { cursor: pointer; }
+.tl-click:hover { background: var(--brand-soft); border-radius: 8px; }
+.lb-mask { position: fixed; inset: 0; z-index: 90; background: rgba(40, 25, 10, .45); display: flex; align-items: center; justify-content: center; }
+.lb-box { background: #fffdf9; border-radius: 16px; padding: 16px; max-width: min(560px, 92vw); text-align: center; }
+.lb-box img { max-width: 100%; max-height: 70vh; border-radius: 10px; }
+.lb-cap { font-size: 13px; color: var(--ink-2); margin: 10px 0; }
+</style>
