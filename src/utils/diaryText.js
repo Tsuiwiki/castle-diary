@@ -209,27 +209,28 @@ export function linesToText(lines) {
 // 某月每天的概况：{ 'YYYY-MM-DD': { count, mood, photo } }，日历和右栏统计用
 export function monthIndex(ym) {
   const map = {}
-  const hit = (date, n = 1) => {
+  const hit = (date, n = 1, kind = '') => {
     if (!date || date.slice(0, 7) !== ym) return null
-    map[date] = map[date] || { count: 0, mood: '', photo: null, hasText: false }
+    map[date] = map[date] || { count: 0, mood: '', photo: null, hasText: false, kinds: {} }
     map[date].count += n
+    if (kind) map[date].kinds[kind] = (map[date].kinds[kind] || 0) + n
     return map[date]
   }
-  for (const m of store.meals) hit(m.date)
-  for (const t of store.trips) hit(t.date)
-  for (const w of store.words) hit(w.date)
-  for (const h of store.healths) hit(h.date)
+  for (const m of store.meals) hit(m.date, 1, 'food')
+  for (const t of store.trips) hit(t.date, 1, 'trip')
+  for (const w of store.words) hit(w.date, 1, 'word')
+  for (const h of store.healths) hit(h.date, 1, 'health')
   for (const i of store.illnesses) {
-    for (const t of i.temps) hit(t.time.slice(0, 10))
-    for (const n of i.notes) hit(n.date)
-    hit(i.start)
-    if (i.end) hit(i.end)
+    for (const t of i.temps) hit(t.time.slice(0, 10), 1, 'sick')
+    for (const n of i.notes) hit(n.date, 1, 'sick')
+    hit(i.start, 1, 'sick')
+    if (i.end) hit(i.end, 1, 'sick')
   }
-  for (const m of store.milestones) if (m.source !== '餐桌' && m.source !== '游戏') hit(m.date)
-  for (const g of store.games) for (const p of g.plays) hit(p.date)
-  for (const b of store.books) for (const r of b.reads || []) hit((r.time || '').slice(0, 10))
+  for (const m of store.milestones) if (m.source !== '餐桌' && m.source !== '游戏') hit(m.date, 1, 'milestone')
+  for (const g of store.games) for (const p of g.plays) hit(p.date, 1, 'play')
+  for (const b of store.books) for (const r of b.reads || []) hit((r.time || '').slice(0, 10), 1, 'read')
   for (const p of store.photos) {
-    const d = hit(p.date)
+    const d = hit(p.date, 1, 'photo')
     if (d && !d.photo && p.imageUrl) d.photo = p.imageUrl
   }
   for (const d of store.diaries) {

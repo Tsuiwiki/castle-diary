@@ -30,6 +30,12 @@
         <template v-if="c">
           <span class="cal-d">{{ c.day }}</span>
           <span v-if="c.mood" class="cal-mood" :style="{ background: c.mood.color }">{{ c.mood.key }}</span>
+          <!-- 彩色小条：吃了/去了/读了/说了/玩了/病了/节点/照片，颜色与日记正文词条一致 -->
+          <span v-if="c.info" class="cal-bars">
+            <span v-for="k in KIND_ORDER.filter(k => c.info.kinds[k])" :key="k" class="cal-bar" :class="'cb-' + k" :title="KIND_LABELS[k] + ' ' + c.info.kinds[k]">
+              <Icon :name="KIND_ICONS[k]" :size="10" />{{ c.info.kinds[k] }}
+            </span>
+          </span>
           <span v-if="c.info?.count" class="cal-count">{{ c.info.count }} 条</span>
         </template>
       </div>
@@ -70,6 +76,10 @@ const today = todayStr()
 
 const emit = defineEmits(['go'])
 const WEEK = ['一', '二', '三', '四', '五', '六', '日']
+// 日历格子里的彩色小条：顺序 / 图标 / 名称（颜色见 .cb-*，与日记正文 .tk-* 同色）
+const KIND_ORDER = ['food', 'trip', 'read', 'word', 'play', 'photo', 'sick', 'health', 'milestone']
+const KIND_ICONS = { food: 'utensils', trip: 'map-pin', read: 'library', word: 'message-circle', play: 'sparkles', photo: 'camera', sick: 'heart-pulse', health: 'plus', milestone: 'flag' }
+const KIND_LABELS = { food: '吃了', trip: '去了', read: '读了', word: '说了', play: '玩了', photo: '照片', sick: '不舒服', health: '健康', milestone: '成长节点' }
 const p2 = n => String(n).padStart(2, '0')
 
 const now = new Date()
@@ -163,6 +173,17 @@ function open(date) {
   position: absolute; left: 6px; bottom: 6px; font-size: 11px; color: var(--brand-deep);
   background: rgba(255, 255, 255, .88); border-radius: 6px; padding: 0 5px;
 }
+.cal-bars { position: absolute; left: 6px; right: 6px; top: 50%; transform: translateY(-50%); display: flex; flex-wrap: wrap; gap: 3px; }
+.cal-bar { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; border-radius: 5px; padding: 0 4px; line-height: 15px; font-variant-numeric: tabular-nums; }
+.cb-food { color: #3f7a1c; background: rgba(143, 191, 95, .2); }
+.cb-trip { color: #245d96; background: rgba(106, 166, 216, .22); }
+.cb-read { color: #a55a10; background: rgba(240, 160, 80, .2); }
+.cb-word { color: #a23a62; background: rgba(229, 143, 174, .22); }
+.cb-play { color: #4e3fa8; background: rgba(155, 143, 208, .24); }
+.cb-photo { color: #c2701c; background: rgba(245, 167, 66, .2); }
+.cb-sick { color: #b8452c; background: rgba(229, 103, 90, .18); }
+.cb-health { color: #1f7f6b; background: rgba(42, 160, 130, .18); }
+.cb-milestone { color: #5b4bb0; background: rgba(155, 143, 208, .24); }
 .cal-cell.sel { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(240, 147, 75, .35); }
 .day-peek { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 12px; }
 .dp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -183,6 +204,8 @@ function open(date) {
   /* 心情不整块隐藏，缩成小色点保留信息 */
   .cal-mood { font-size: 0; width: 9px; height: 9px; padding: 0; top: 5px; right: 5px; }
   .cal-count { font-size: 10px; }
+  .cal-bars { gap: 2px; }
+  .cal-bar { font-size: 9px; padding: 0 3px; line-height: 13px; }
   /* 顶部改两层：第一行月份 + 统计，第二行翻月按钮；城堡在窄屏隐藏避免拥挤 */
   .cal-nav { flex-wrap: wrap; align-items: center; row-gap: 8px; }
   .cal-title { order: -1; width: 100%; display: flex; align-items: baseline; justify-content: space-between; }
