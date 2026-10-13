@@ -12,7 +12,7 @@
         <span class="cal-sum">写了 {{ writtenDays }} 天<template v-if="photoCount"> · {{ photoCount }} 张照片</template></span>
       </div>
       <div class="cal-castle" :title="`城堡：月龄生日加一层，词添砖、里程碑插旗、读完的书点灯、去过的地方种树；随季节换装`">
-        <CastleSvg :width="170" :date="`${ym}-15`" />
+        <CastleSvg :width="118" :date="`${ym}-15`" />
         <span class="cal-season">{{ seasonName }} · 本月写了 {{ writtenDays }} 天</span>
       </div>
       <button class="mini-btn ghost" :disabled="isCurrentMonth" @click="shift(1)">下个月<Icon name="chevron-right" :size="14" /></button>
@@ -98,9 +98,9 @@ function open(date) {
 </script>
 
 <style scoped>
-.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cal-nav { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
 .cal-title { text-align: center; }
-.cal-castle { position: absolute; right: 18px; top: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.cal-castle { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .cal-season { font-size: 11px; color: var(--ink-3); }
 .card { position: relative; }
 .cal-title b { font-size: 17px; display: block; }
