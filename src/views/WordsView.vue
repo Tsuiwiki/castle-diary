@@ -221,9 +221,9 @@ const filtered = computed(() => store.words.filter(w => {
   return true
 }))
 
-function add() {
+async function add() {
   if (!form.word) return
-  addWord({ word: form.word, kind: form.kind, sourceBook: form.sourceBook || null, pinyin: form.pinyin, meaning: form.meaning, image: form.image })
+  await addWord({ word: form.word, kind: form.kind, sourceBook: form.sourceBook || null, pinyin: form.pinyin, meaning: form.meaning, image: form.image })
   form.word = ''; form.pinyin = ''; form.meaning = ''; form.image = ''
 }
 

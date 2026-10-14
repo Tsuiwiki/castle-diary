@@ -277,9 +277,9 @@ function quickRead(b) {
   setTimeout(() => { if (justRead.value === b.id) justRead.value = '' }, 1600)
 }
 
-function addQuickWord(b) {
+async function addQuickWord(b) {
   if (!quickWord.value) return
-  addWord({ word: quickWord.value, kind: quickKind.value, sourceBook: b.title, pinyin: genPinyin(quickWord.value) })
+  await addWord({ word: quickWord.value, kind: quickKind.value, sourceBook: b.title, pinyin: genPinyin(quickWord.value) })
   quickWord.value = ''
   wordFor.value = ''
 }

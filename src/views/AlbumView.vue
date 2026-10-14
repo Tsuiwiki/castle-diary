@@ -129,7 +129,7 @@ async function handleFiles(files) {
     for (const f of files) {
       if (!f.type.startsWith('image/')) continue
       const dataUrl = await compressImage(f, 1280, 0.72)
-      addPhoto({ dataUrl, date: date.value || todayStr(), note: note.value, milestoneId: milestoneId.value })
+      await addPhoto({ dataUrl, date: date.value || todayStr(), note: note.value, milestoneId: milestoneId.value })
     }
     note.value = ''
   } finally {
@@ -152,7 +152,8 @@ function relink(mid) {
 }
 function removeCurrent() {
   if (!confirm('删除这张照片？')) return
-  removePhoto(current.value.id)
+  const r = removePhoto(current.value.id)
+  if (r === 'blocked') { alert('这张照片还被出行/游戏记录用着，先去那边删掉引用再删'); return }
   current.value = null
 }
 </script>

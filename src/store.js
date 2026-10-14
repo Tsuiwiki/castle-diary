@@ -4,11 +4,12 @@
 
 import { reactive, ref } from 'vue'
 import { idbPutCover, idbGet, idbAllCovers, idbDelCover, idbClear } from './utils/idb.js'
+import { checkBackup, repairPayload, checksumOf } from './utils/dataCheck.js'
 import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.32.0'
+export const APP_VERSION = '0.33.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -187,7 +188,7 @@ function saveLocal() {
 }
 
 function applyState(s) {
-  store.settings = { childName: '', birthday: todayStr(), tts: true, ...(s.settings || {}) }
+  store.settings = { childName: '', birthday: '', tts: true, ...(s.settings || {}) }
   store.books = s.books || []
   store.words = s.words || []
   store.medicines = s.medicines || []
@@ -406,11 +407,9 @@ export function updateBook(id, fields) {
 export async function setBookCover(bookId, dataUrl) {
   const book = store.books.find(b => b.id === bookId)
   if (!book) return
-  if (book.coverId && book.coverId !== undefined) {
-    await idbDelCover(book.coverId).catch(() => {})
-  }
   const coverId = uid()
-  await putMedia({ id: coverId, dataUrl }, '封面')
+  if (!(await putMedia({ id: coverId, dataUrl }, '封面'))) return // 新封面没写进去，旧的保留不动
+  if (book.coverId) await idbDelCover(book.coverId).catch(() => {})
   book.coverId = coverId
   book.coverUrl = dataUrl
   saveLocal()
@@ -465,7 +464,7 @@ export function monthReadStats() {
 }
 
 // ---------- 词库 ----------
-export function addWord({ word, kind = '词语', sourceBook = null, date, pinyin = '', meaning = '', image = '', audio = null, funny = false }) {
+export async function addWord({ word, kind = '词语', sourceBook = null, date, pinyin = '', meaning = '', image = '', audio = null, funny = false }) {
   const w = {
     id: uid(), word, kind,
     date: date || todayStr(),
@@ -475,18 +474,20 @@ export function addWord({ word, kind = '词语', sourceBook = null, date, pinyin
     mastered: false,
     funny: !!funny,   // 金句：说得很妙的话（童言稚语）
   }
-  // 配图（可选）：原图进 IndexedDB，词条只挂 imageId，imageUrl 为运行时缓存
+  // 配图（可选）：原图先进 IndexedDB 落盘成功才挂引用（落盘前关页面会丢图）
   if (image) {
-    w.imageId = uid()
+    const imageId = uid()
+    if (!(await putMedia({ id: imageId, dataUrl: image }, '配图'))) return null
+    w.imageId = imageId
     w.imageUrl = image
-    putMedia({ id: w.imageId, dataUrl: image }, '配图')
   }
   // 录音（可选）：她自己说这个词的声音，同样进 IndexedDB
   if (audio?.dataUrl) {
-    w.audioId = uid()
+    const audioId = uid()
+    if (!(await putMedia({ id: audioId, dataUrl: audio.dataUrl }, '录音'))) return null
+    w.audioId = audioId
     w.audioMs = audio.ms || 0
     w.audioUrl = audio.dataUrl
-    putMedia({ id: w.audioId, dataUrl: audio.dataUrl }, '录音')
   }
   store.words.unshift(w)
   saveLocal()
@@ -497,9 +498,9 @@ export function addWord({ word, kind = '词语', sourceBook = null, date, pinyin
 export async function setWordAudio(id, audio) {
   const w = store.words.find(x => x.id === id)
   if (!w || !audio?.dataUrl) return
-  if (w.audioId) await idbDelCover(w.audioId).catch(() => {})
   const audioId = uid()
-  await putMedia({ id: audioId, dataUrl: audio.dataUrl }, '录音')
+  if (!(await putMedia({ id: audioId, dataUrl: audio.dataUrl }, '录音'))) return
+  if (w.audioId) await idbDelCover(w.audioId).catch(() => {})
   w.audioId = audioId
   w.audioMs = audio.ms || 0
   w.audioUrl = audio.dataUrl
@@ -534,9 +535,9 @@ export function updateWord(id, fields) {
 export async function setWordImage(id, dataUrl) {
   const w = store.words.find(x => x.id === id)
   if (!w) return
-  if (w.imageId) await idbDelCover(w.imageId).catch(() => {})
   const imageId = uid()
-  await putMedia({ id: imageId, dataUrl }, '照片')
+  if (!(await putMedia({ id: imageId, dataUrl }, '照片'))) return
+  if (w.imageId) await idbDelCover(w.imageId).catch(() => {})
   w.imageId = imageId
   w.imageUrl = dataUrl
   saveLocal()
@@ -906,9 +907,9 @@ export function updateToy(id, { link }) {
 export async function setToyImage(id, dataUrl) {
   const t = store.toys.find(x => x.id === id)
   if (!t) return
-  if (t.imageId) await idbDelCover(t.imageId).catch(() => {})
   const imageId = uid()
-  await putMedia({ id: imageId, dataUrl }, '照片')
+  if (!(await putMedia({ id: imageId, dataUrl }, '照片'))) return
+  if (t.imageId) await idbDelCover(t.imageId).catch(() => {})
   t.imageId = imageId
   t.imageUrl = dataUrl
   saveLocal()
@@ -979,9 +980,9 @@ export function updateGame(id, fields) {
 export async function setGameImage(id, dataUrl) {
   const g = store.games.find(x => x.id === id)
   if (!g) return
-  if (g.imageId) await idbDelCover(g.imageId).catch(() => {})
   const imageId = uid()
-  await putMedia({ id: imageId, dataUrl }, '照片')
+  if (!(await putMedia({ id: imageId, dataUrl }, '照片'))) return
+  if (g.imageId) await idbDelCover(g.imageId).catch(() => {})
   g.imageId = imageId
   g.imageUrl = dataUrl
   saveLocal()
@@ -1028,7 +1029,7 @@ export function lastPlayDate(g) {
 
 // ---------- 相册 ----------
 // 照片原图进 IndexedDB（复用 covers 表），localStorage 只存元数据
-export function addPhoto({ dataUrl, date, note = '', milestoneId = '' }) {
+export async function addPhoto({ dataUrl, date, note = '', milestoneId = '' }) {
   const p = {
     id: uid(),
     date: date || todayStr(),
@@ -1036,9 +1037,10 @@ export function addPhoto({ dataUrl, date, note = '', milestoneId = '' }) {
     milestoneId: milestoneId || '',
   }
   if (dataUrl) {
-    p.imageId = uid()
+    const imageId = uid()
+    if (!(await putMedia({ id: imageId, dataUrl }, '照片'))) return null // 照片没落盘就不建记录
+    p.imageId = imageId
     p.imageUrl = dataUrl
-    putMedia({ id: p.imageId, dataUrl }, '照片')
   }
   store.photos.unshift(p)
   saveLocal()
@@ -1046,6 +1048,10 @@ export function addPhoto({ dataUrl, date, note = '', milestoneId = '' }) {
 }
 
 export function removePhoto(id) {
+  // 被出行或游戏记录引用的照片不删（引用会悬空）
+  const usedByTrip = store.trips.some(t => t.photoId === id)
+  const usedByPlay = store.games.some(g => (g.plays || []).some(pl => pl.photoId === id))
+  if (usedByTrip || usedByPlay) return 'blocked'
   const p = store.photos.find(x => x.id === id)
   if (p?.imageId) idbDelCover(p.imageId).catch(() => {})
   const idx = store.photos.findIndex(x => x.id === id)
@@ -1173,14 +1179,15 @@ export function removeMember(id) {
 }
 
 // ---------- 小主人档案 ----------
-export function setAvatar(dataUrl) {
-  if (store.settings.avatarId) idbDelCover(store.settings.avatarId).catch(() => {})
+export async function setAvatar(dataUrl) {
   if (dataUrl) {
     const id = uid()
+    if (!(await putMedia({ id, dataUrl }, '头像'))) return // 新头像没落盘，旧的保留
+    if (store.settings.avatarId) await idbDelCover(store.settings.avatarId).catch(() => {})
     store.settings.avatarId = id
     store.settings.avatarUrl = dataUrl
-    putMedia({ id, dataUrl }, '头像')
   } else {
+    if (store.settings.avatarId) idbDelCover(store.settings.avatarId).catch(() => {})
     delete store.settings.avatarId
     delete store.settings.avatarUrl
   }
@@ -1317,6 +1324,11 @@ export function rangeReport(startDate, endDate) {
 export async function resetAll(noReload = false) {
   localStorage.removeItem(LS_KEY)
   await idbClear().catch(() => {})
+  // 自动备份目录句柄一并放下：重建后的第一次编辑不该用空白数据覆盖旧备份
+  backupDir = null
+  autoBackup.enabled = false
+  autoBackup.status = ''
+  await idbDelCover('backup-dir').catch(() => {})
   const { clearAppLock } = await import('./utils/appLock.js')
   clearAppLock()
   if (!noReload) location.reload()
@@ -1324,10 +1336,32 @@ export async function resetAll(noReload = false) {
 
 // ---------- 备份导出 / 导入（跨设备迁移的唯一通道） ----------
 // 导出：完整 JSON，封面内嵌 base64，可直接导入另一台设备/浏览器
-export async function exportBackup() {
-  return {
+// 备份单源：手动导出与自动备份共用。媒体直读 IndexedDB（不再依赖运行时缓存——缓存失败会导致备份静默丢图）。
+// 返回 { backup, mediaWarning }；读媒体库失败直接抛错（让调用方提示，不更新 lastExportAt）
+export async function buildBackup() {
+  let media
+  try {
+    media = await idbAllCovers()
+  } catch (e) {
+    throw new Error('读取本机图片/录音库失败，这次备份没有生成。请重试或检查浏览器存储。')
+  }
+  const covers = media.filter(m => m?.id && m?.dataUrl && m.id !== 'backup-dir')
+  // 业务记录引用了媒体、但媒体库里没有 → 备份不完整，明确提示
+  const coverIds = new Set(covers.map(c => c.id))
+  let missing = 0
+  for (const b of store.books) if (b.coverId && !coverIds.has(b.coverId)) missing++
+  for (const w of store.words) {
+    if (w.imageId && !coverIds.has(w.imageId)) missing++
+    if (w.audioId && !coverIds.has(w.audioId)) missing++
+  }
+  for (const p of store.photos) if (p.imageId && !coverIds.has(p.imageId)) missing++
+  for (const t of store.toys) if (t.imageId && !coverIds.has(t.imageId)) missing++
+  for (const g of store.games) if (g.imageId && !coverIds.has(g.imageId)) missing++
+  if (store.settings.avatarId && !coverIds.has(store.settings.avatarId)) missing++
+  const data = {
     app: 'castle-books', // 存储/备份格式标识，不动（改了会孤儿化老数据与旧备份）
-    version: 1,
+    version: 2,
+    appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
     settings: (({ avatarUrl, ...s }) => s)(store.settings), // avatarUrl 是运行时缓存，不导出
     books: store.books.map(({ coverUrl, ...b }) => b), // coverUrl 是运行时缓存，不导出
@@ -1346,17 +1380,23 @@ export async function exportBackup() {
     places: store.places,
     illnesses: store.illnesses,
     members: store.members,
-    covers: [
-      // 书籍封面 + 词配图 + 相册照片 + 玩具图片 + 头像统一走 covers 数组（都是 {id, dataUrl}）
-      ...store.books.filter(b => b.coverId && b.coverUrl).map(b => ({ id: b.coverId, dataUrl: b.coverUrl })),
-      ...store.words.filter(w => w.imageId && w.imageUrl).map(w => ({ id: w.imageId, dataUrl: w.imageUrl })),
-      ...store.photos.filter(p => p.imageId && p.imageUrl).map(p => ({ id: p.imageId, dataUrl: p.imageUrl })),
-      ...store.toys.filter(t => t.imageId && t.imageUrl).map(t => ({ id: t.imageId, dataUrl: t.imageUrl })),
-      ...store.words.filter(w => w.audioId && w.audioUrl).map(w => ({ id: w.audioId, dataUrl: w.audioUrl })),
-      ...store.games.filter(g => g.imageId && g.imageUrl).map(g => ({ id: g.imageId, dataUrl: g.imageUrl })),
-      ...(store.settings.avatarId && store.settings.avatarUrl ? [{ id: store.settings.avatarId, dataUrl: store.settings.avatarUrl }] : []),
-    ],
+    covers, // 书籍封面 + 词配图/录音 + 相册照片 + 玩具图片 + 游戏图 + 头像（{id, dataUrl}）
   }
+  data.checksum = checksumOf(JSON.stringify(data))
+  return {
+    backup: data,
+    mediaWarning: missing ? `有 ${missing} 个图片/录音在本机没找到，没有进入这次备份` : '',
+  }
+}
+
+// 兼容旧调用：直接返回备份对象（校验失败/媒体缺失时抛错）
+export async function exportBackup() {
+  const { backup, mediaWarning } = await buildBackup()
+  if (mediaWarning) {
+    // 不完整但可用：随备份带回提示，调用方决定是否仍标记已导出
+    backup.__mediaWarning = mediaWarning
+  }
+  return backup
 }
 
 // 导入：整体替换当前设备数据（导入前请确认旧数据已备份或不需要）
@@ -1445,23 +1485,36 @@ export async function importBackup(data) {
     throw new Error('备份文件格式不对')
   }
 
-  // 事务化导入：当前数据先存进回滚键；新数据全部写完后才切换，中途失败可回滚
-  const rollback = localStorage.getItem(LS_KEY)
-  const { covers = [], ...rest } = payload
-  const words = (rest.words || []).map(w => ({ mastered: false, ...w })) // 词数据兜底补齐 mastered 字段
+  // DATA-04：写入前先校验；致命问题直接拒绝，现有数据一个字符都不动
+  const check = checkBackup(payload)
+  if (check.fatal.length) throw new Error('备份校验没通过：' + check.fatal.join('；'))
+  const { payload: fixed, fixes } = repairPayload(payload, uid)
+  const { covers = [], ...rest } = fixed
+
+  // DATA-05 两段提交（localStorage 与 IndexedDB 无原子事务，用快照+差集模拟）：
+  // 阶段 0 快照 → 阶段 2 写新媒体（不删旧的！）→ 阶段 3 写主数据 → 阶段 4 验证 → 失败回滚快照并删掉本阶段新增媒体
+  const lsSnapshot = localStorage.getItem(LS_KEY)
+  const existingMediaIds = new Set((await idbAllCovers().catch(() => [])).map(m => m.id))
+  const stagedMedia = []
   try {
-    await idbClear().catch(() => {})
     let mediaFailed = 0
     for (const c of covers) {
-      if (c.dataUrl && !(await putMedia({ id: c.id, dataUrl: c.dataUrl }, '图片'))) mediaFailed++
+      if (await putMedia({ id: c.id, dataUrl: c.dataUrl }, '图片')) stagedMedia.push(c.id)
+      else mediaFailed++
     }
     if (mediaFailed) throw new Error(`${mediaFailed} 张图片/录音没能写入本机存储（可能是空间不足）`)
-    applyState({ ...rest, words })
+    applyState(rest)
     if (!persistNow()) throw new Error('结构化数据没能写入本机存储') // 立即落盘，不走防抖
+    // 阶段 4 验证：重读主数据能解析，且引用的新媒体确实可读
+    JSON.parse(localStorage.getItem(LS_KEY) || 'null') // 解析失败会抛
   } catch (e) {
-    // 任一环节失败：回滚 localStorage 原数据；媒体按原 id 引用，刷新后尽量恢复
-    if (rollback !== null) localStorage.setItem(LS_KEY, rollback)
+    // 回滚：还原主数据快照；只删除本阶段新写入的媒体，旧媒体从未被清理过
+    if (lsSnapshot !== null) localStorage.setItem(LS_KEY, lsSnapshot)
+    for (const id of stagedMedia) {
+      if (!existingMediaIds.has(id)) await idbDelCover(id).catch(() => {})
+    }
     throw new Error(`导入没有完成：${e.message}。已恢复原数据，请检查存储空间后再试。`)
   }
-  return { fromDiary: !!payload.__fromDiary }
+  const result = { fromDiary: !!payload.__fromDiary, fixes, warnings: check.warnings }
+  return result
 }

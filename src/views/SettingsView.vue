@@ -236,9 +236,21 @@ async function openAutoBackup() {
 }
 
 async function doExport() {
-  const data = await exportBackup()
+  let data
+  try {
+    data = await exportBackup()
+  } catch (e) {
+    alert(e.message) // 备份没生成（比如媒体库读失败），不更新"上次备份"时间
+    return
+  }
+  const warning = data.__mediaWarning || ''
+  delete data.__mediaWarning
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
-  markExported()
+  if (warning) {
+    alert('备份文件已下载，但要注意：' + warning + '。这次不记为"已备份"。')
+  } else {
+    markExported()
+  }
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
   a.download = `城堡日记-备份-${todayStr().replaceAll('-', '')}.json`

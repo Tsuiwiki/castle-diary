@@ -46,7 +46,7 @@
         <div class="form-row">
           <label>锻炼什么（可多选）</label>
           <div class="chip-row">
-            <span v-for="t in GAME_TAGS" :key="t" class="chip" :class="{ sel: form.tags.includes(t) }" @click="toggle(form.tags, t)">{{ t }}</span>
+            <span v-for="t in GAME_TAGS" :key="t" class="chip" :class="{ sel: (form.tags || []).includes(t) }" @click="toggle(form.tags, t)">{{ t }}</span>
           </div>
         </div>
         <div v-if="toyOptions.length" class="form-row">
@@ -106,7 +106,7 @@
         <div class="g-grid">
           <div v-for="g in wall" :key="g.id" :id="'g-' + g.id" class="g-card" :class="{ flash: flashId === g.id }">
             <div class="g-head">
-              <div class="g-img" :class="'tag-' + tagIndex(g.tags[0])" title="换图片" @click="pickImage(g)">
+              <div class="g-img" :class="'tag-' + tagIndex(g.tags?.[0])" title="换图片" @click="pickImage(g)">
                 <img v-if="g.imageUrl" :src="g.imageUrl" />
                 <span v-else>{{ g.name.slice(0, 1) }}</span>
               </div>
@@ -268,7 +268,7 @@ const ideasAll = computed(() =>
     .sort((a, b) => (inSeason(b.i) ? 1 : 0) - (inSeason(a.i) ? 1 : 0) || a.k - b.k)
     .map(({ i }) => i)
 )
-const ideas = computed(() => ideasAll.value.filter(i => !ideaTag.value || i.tags.includes(ideaTag.value)))
+const ideas = computed(() => ideasAll.value.filter(i => !ideaTag.value || (i.tags || []).includes(ideaTag.value)))
 function addIdea(i) {
   const g = addGame({ name: i.name, tags: i.tags, how: i.how })
   showToast(`「${g.name}」加入了游戏册`)
@@ -278,10 +278,10 @@ function addIdea(i) {
 
 // ---------- 卡片墙 ----------
 const wallTag = ref('')
-const usedTags = computed(() => GAME_TAGS.filter(t => store.games.some(g => g.tags.includes(t))))
+const usedTags = computed(() => GAME_TAGS.filter(t => store.games.some(g => (g.tags || []).includes(t))))
 const wall = computed(() =>
   store.games
-    .filter(g => !wallTag.value || g.tags.includes(wallTag.value))
+    .filter(g => !wallTag.value || (g.tags || []).includes(wallTag.value))
     .sort((a, b) => (lastPlayDate(b) || b.createdAt).localeCompare(lastPlayDate(a) || a.createdAt))
 )
 const toyNames = g => (g.toyIds || []).map(id => store.toys.find(t => t.id === id)?.name).filter(Boolean)

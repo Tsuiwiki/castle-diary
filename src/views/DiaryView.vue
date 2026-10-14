@@ -690,7 +690,7 @@ async function saveSay() {
       return
     }
   }
-  addWord({ word: say.input, kind, date: date.value, audio, funny: kind === '句子' && say.funny })
+  await addWord({ word: say.input, kind, date: date.value, audio, funny: kind === '句子' && say.funny })
   if (kind === '词语') {
     const n = store.words.filter(w => ['词语', '发音'].includes(w.kind)).length
     if (n % 10 === 0) stamp('新词', `她会说的第 ${n} 个词！`)
@@ -891,7 +891,7 @@ async function handleFiles(files) {
   try {
     for (const f of imgs) {
       const dataUrl = await compressImage(f, 1280, 0.72)
-      addPhoto({ dataUrl, date: date.value, note: photoNote.value })
+      await addPhoto({ dataUrl, date: date.value, note: photoNote.value })
     }
     photoNote.value = ''
     showToast(`贴上了 ${imgs.length} 张照片`)
