@@ -9,7 +9,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.33.0'
+export const APP_VERSION = '0.33.1'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -189,9 +189,10 @@ function saveLocal() {
 
 function applyState(s) {
   store.settings = { childName: '', birthday: '', tts: true, ...(s.settings || {}) }
-  store.books = s.books || []
+  // 老版本记录的数组字段兜底（不写回存储，只是内存归一化；落盘时自然带上）
+  store.books = (s.books || []).map(b => ({ reads: [], ...b }))
   store.words = s.words || []
-  store.medicines = s.medicines || []
+  store.medicines = (s.medicines || []).map(m => ({ logs: [], ...m }))
   store.healths = s.healths || []
   store.vaccines = s.vaccines || []
   store.meals = s.meals || []
@@ -200,10 +201,10 @@ function applyState(s) {
   store.photos = s.photos || []
   store.trips = s.trips || []
   store.diaries = s.diaries || []
-  store.games = s.games || []
+  store.games = (s.games || []).map(g => ({ plays: [], tags: [], ...g }))
   store.foods = s.foods || []
   store.places = s.places || []
-  store.illnesses = s.illnesses || []
+  store.illnesses = (s.illnesses || []).map(i => ({ symptoms: [], temps: [], notes: [], visits: [], ...i }))
   store.members = s.members || []
 }
 
