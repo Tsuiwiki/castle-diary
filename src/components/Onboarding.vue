@@ -15,7 +15,7 @@
           <input v-model.trim="name" placeholder="比如：小宝、团团" maxlength="12" />
           <label>生日</label>
           <input v-model="birthday" type="date" :max="today" />
-          <label>日记里怎么称呼</label>
+          <label>称呼</label>
           <div class="chip-row">
             <span v-for="p in PRONOUNS" :key="p.key" class="chip" :class="{ sel: pronoun === p.key }" @click="pronoun = p.key">{{ p.label }}</span>
           </div>
@@ -146,7 +146,7 @@ function toImport() {
 .ob-lead { font-size: 14px; color: var(--ink-2); line-height: 1.75; margin: 0 0 14px; }
 .ob-note { font-size: 12px; color: var(--ink-3); line-height: 1.7; margin: 10px 0 0; }
 .ob-form { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: center; }
-.ob-form label { font-size: 13px; color: var(--ink-2); }
+.ob-form label { font-size: 13px; color: var(--ink-2); white-space: nowrap; }
 .ob-form input { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 15px; background: #fff; }
 .ob-form .chip-row { margin: 0; }
 .ob-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; }
