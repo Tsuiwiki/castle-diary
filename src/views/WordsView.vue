@@ -73,7 +73,7 @@
     <Icon name="alert-triangle" :size="16" />
     <span>
       词库里有 <b>{{ charWordCount }}</b> 个词标的是「识字」，日记会写成"认识了 XX"。
-      之前录词默认就是「识字」，如果这些其实是她<b>会说</b>的词，可以一键改成「词语」；个别真的是认字的，再到表格里单独改回来。
+      之前录词默认就是「识字」，如果这些其实是{{ ta() }}<b>会说</b>的词，可以一键改成「词语」；个别真的是认字的，再到表格里单独改回来。
     </span>
     <button class="mini-btn" @click="convertCharWords">全部改成「词语」</button>
     <button class="mini-btn ghost" @click="hideKindTip = true">先不改</button>
@@ -100,7 +100,7 @@
         @dblclick="toggleMastered(w)"
         :title="(w.pinyin ? w.pinyin + ' · ' : '') + (w.mastered ? '已掌握（双击改为学习中）' : '学习中（双击标记已掌握）')"
       >
-        {{ w.word }}<span v-if="w.funny" class="wquote on" title="金句">✨</span><img v-if="w.imageUrl" :src="w.imageUrl" class="wthumb" :alt="w.word" /><button v-if="w.audioUrl" class="waudio" title="听她说" @click.stop="playAudio(w.audioUrl)" @dblclick.stop><Icon name="volume" :size="12" /></button><span class="wkind">{{ w.kind }}{{ w.mastered ? ' · 已掌握' : '' }}</span>
+        {{ w.word }}<span v-if="w.funny" class="wquote on" title="金句">✨</span><img v-if="w.imageUrl" :src="w.imageUrl" class="wthumb" :alt="w.word" /><button v-if="w.audioUrl" class="waudio" :title="her('听她说')" @click.stop="playAudio(w.audioUrl)" @dblclick.stop><Icon name="volume" :size="12" /></button><span class="wkind">{{ w.kind }}{{ w.mastered ? ' · 已掌握' : '' }}</span>
         <button class="wdel" @click.stop="delWord(w)">×</button>
       </div>
     </div>
@@ -117,7 +117,7 @@
             <button v-else class="wt-addimg" title="上传配图" @click="replaceImage(w)">＋</button>
           </td>
           <td class="wt-word">
-            {{ w.word }}<button v-if="w.audioUrl" class="waudio" title="听她说" @click="playAudio(w.audioUrl)"><Icon name="volume" :size="12" /></button>
+            {{ w.word }}<button v-if="w.audioUrl" class="waudio" :title="her('听她说')" @click="playAudio(w.audioUrl)"><Icon name="volume" :size="12" /></button>
             <button v-if="w.kind === '句子'" class="wquote" :class="{ on: w.funny }" :title="w.funny ? '取消金句' : '标为金句（童言稚语）'" @click="updateWord(w.id, { funny: !w.funny })">✨</button>
           </td>
           <td>
@@ -164,6 +164,7 @@
 </template>
 
 <script setup>
+import { ta, her } from '../store.js'
 import { ref, computed, reactive, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import WordCardSheet from '../components/WordCardSheet.vue'
@@ -257,7 +258,7 @@ const hideKindTip = ref(false)
 const charWordCount = computed(() => store.words.filter(w => w.kind === '识字').length)
 function convertCharWords() {
   const list = store.words.filter(w => w.kind === '识字')
-  if (!confirm(`把 ${list.length} 个「识字」的词都改成「词语」（她会说的词）？之后可以在表格里单独改回`)) return
+  if (!confirm(her(`把 ${list.length} 个「识字」的词都改成「词语」（她会说的词）？之后可以在表格里单独改回`))) return
   for (const w of list) updateWord(w.id, { kind: '词语' })
 }
 

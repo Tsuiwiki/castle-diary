@@ -14,7 +14,7 @@
             <span v-if="age">{{ childName() }} · {{ age }}</span>
             <a v-else-if="!store.settings.birthday" class="bday-hint" @click="$emit('go', 'settings')">先填小名和生日，月龄才会长出来 →</a>
             <span v-if="isMonthBirthday" class="p-bday">月龄生日</span>
-            <span v-if="dayTerm" class="p-term" :class="'term-' + dayTerm.season" :title="dayTerm.hint">今日 · {{ dayTerm.name }}</span>
+            <span v-if="dayTerm" class="p-term" :class="'term-' + dayTerm.season" :title="her(dayTerm.hint)">今日 · {{ dayTerm.name }}</span>
             <span v-if="entry.lines.length" class="p-mini-castle" title="城堡的家底" @click="castleLedger = true"><CastleSvg :width="64" /></span>
           </div>
         </div>
@@ -31,7 +31,7 @@
 
       <!-- 心情 -->
       <div class="p-mood">
-        <span class="p-mood-lbl">她今天</span>
+        <span class="p-mood-lbl">{{ ta() }}今天</span>
         <span
           v-for="m in MOODS" :key="m.key"
           class="mood-chip" :class="{ on: diary?.mood === m.key }"
@@ -47,7 +47,7 @@
           class="sticker" :class="['st-' + s.key, { on: active === s.key }]"
           @click="toggleSticker(s.key)"
         >
-          <Icon :name="s.icon" :size="15" />{{ s.label }}<kbd>{{ i + 1 }}</kbd>
+          <Icon :name="s.icon" :size="15" />{{ her(s.label) }}<kbd>{{ i + 1 }}</kbd>
         </button>
       </div>
 
@@ -112,7 +112,7 @@
 
         <!-- 她说 -->
         <template v-else-if="active === 'say'">
-          <div class="pn-title">她今天说了什么？</div>
+          <div class="pn-title">{{ ta() }}今天说了什么？</div>
           <div class="pn-input-row">
             <input
               class="pn-input pn-focus" v-model.trim="say.input"
@@ -124,7 +124,7 @@
           <!-- 录音：点一下开始，再点一下停止；最长 15 秒 -->
           <div class="rec-row">
             <button v-if="rec.state === 'idle'" class="rec-btn" @click="startRec">
-              <span class="rec-dot"></span>录下她的声音
+              <span class="rec-dot"></span>录下{{ ta() }}的声音
             </button>
             <template v-else-if="rec.state === 'recording'">
               <button class="rec-btn on" @click="stopRec"><span class="rec-dot"></span>停止</button>
@@ -167,7 +167,7 @@
             />
             <input
               class="pn-input" v-model.trim="play.note"
-              placeholder="她的表现（可选）：自己把三角形放进去了" @keydown.enter.prevent="savePlay"
+              :placeholder="her('她的表现（可选）：自己把三角形放进去了')" @keydown.enter.prevent="savePlay"
             />
             <button class="mini-btn" :disabled="!play.name" @click="savePlay">记下</button>
           </div>
@@ -208,7 +208,7 @@
         <template v-else-if="active === 'sick'">
           <!-- 还没在生病：选症状开一张生病记 -->
           <template v-if="!sickNow">
-            <div class="pn-title">她哪里不舒服？<span class="pn-sub">会开一张「生病记」，之后每天点这张贴纸接着记</span></div>
+            <div class="pn-title">{{ ta() }}哪里不舒服？<span class="pn-sub">会开一张「生病记」，之后每天点这张贴纸接着记</span></div>
             <div class="chip-row">
               <span v-for="sy in SYMPTOMS" :key="sy" class="chip" :class="{ sel: sick.symptoms.includes(sy) }" @click="toggleList(sick.symptoms, sy)">{{ sy }}</span>
             </div>
@@ -284,17 +284,17 @@
 
       <!-- 日记正文 -->
       <div class="p-body">
-        <div v-if="dayTerm" class="p-term-hint">今天是{{ dayTerm.name }}：{{ dayTerm.hint }}</div>
+        <div v-if="dayTerm" class="p-term-hint">今天是{{ dayTerm.name }}：{{ her(dayTerm.hint) }}</div>
         <div v-if="!entry.lines.length && !entry.photos.length" class="p-empty">
           <div class="p-castle" title="城堡的家底" @click="castleLedger = true"><CastleSvg :width="280" /><span>{{ castleSummary }}</span></div>
-          <div class="p-q" @click="toggleSticker(question.s)">{{ question.q }}</div>
+          <div class="p-q" @click="toggleSticker(question.s)">{{ her(question.q) }}</div>
           <div class="p-q-sub">点上面的贴纸，或按数字键 1–7 开始写今天的日记</div>
         </div>
         <p v-for="line in entry.lines" :key="line.key" class="p-line">
           <template v-for="(tk, i) in line.tokens" :key="i">
             <span v-if="tk.t === 'text'">{{ tk.v }}</span>
             <span v-else class="tk" :class="['tk-' + tk.kind, { 'tk-jump': tk.jump }]" @click="tk.jump && $emit('go', tk.jump)">
-              {{ tk.v }}<button v-if="tk.audio" class="tk-play" :class="{ playing: playingUrl === tk.audio }" :title="playingUrl === tk.audio ? '停止' : '听她说'" @click.stop="playAudio(tk.audio)"><Icon name="volume" :size="13" /></button><small v-if="tk.suffix" class="tk-suffix">（{{ tk.suffix }}）</small>
+              {{ tk.v }}<button v-if="tk.audio" class="tk-play" :class="{ playing: playingUrl === tk.audio }" :title="playingUrl === tk.audio ? '停止' : her('听她说')" @click.stop="playAudio(tk.audio)"><Icon name="volume" :size="13" /></button><small v-if="tk.suffix" class="tk-suffix">（{{ tk.suffix }}）</small>
               <span v-if="tk.badge" class="stamp" :class="'stamp-' + tk.badge">{{ tk.badge }}</span>
               <button v-if="tk.del" class="tk-del" title="删掉这条" @click="removeToken(tk)">×</button>
               <button v-if="kindSwitch(tk)" class="tk-kind" @click="switchKind(tk)">{{ kindSwitch(tk).label }}</button>
@@ -438,6 +438,7 @@
 </template>
 
 <script setup>
+import { ta, her } from '../store.js'
 import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import Icon from '../components/Icon.vue'
 import RainbowPlate from '../components/RainbowPlate.vue'
@@ -520,7 +521,7 @@ const entry = computed(() => dayLines(date.value))
 const dayTerm = computed(() => termOf(date.value))
 const question = computed(() => {
   // 节气当天，今日一问换成应景灵感
-  if (dayTerm.value) return { q: `今日${dayTerm.value.name}：${dayTerm.value.hint}`, s: dayTerm.value.sticker }
+  if (dayTerm.value) return { q: `今日${dayTerm.value.name}：${dayTerm.value.hint}`, s: dayTerm.value.sticker } // 显示时 her() 统一换称呼
   const n = Number(date.value.replace(/-/g, '')) % QUESTIONS.length
   return QUESTIONS[n]
 })
@@ -588,7 +589,7 @@ if (sessionStorage.getItem('castle-diary-lost-rec')) {
 }
 
 // PWA 离线提示：第一次打开时轻声告诉一声（已安装为桌面应用则不再提示）
-if (!store.settings.pwaHintShown && !window.matchMedia('(display-mode: standalone)').matches) {
+if (store.settings.onboarded && !store.settings.pwaHintShown && !window.matchMedia('(display-mode: standalone)').matches) {
   store.settings.pwaHintShown = true
   persistNow()
   setTimeout(() => showToast('城堡日记支持离线使用，可添加到桌面，随时离线记录'), 1500)
@@ -670,7 +671,7 @@ const sayKind = computed(() => say.kind || (say.input.length >= 4 || /\s/.test(s
 async function saveSay() {
   if (rec.state === 'recording') await stopRec()
   if (!say.input) {
-    if (rec.result) showToast('先写下她说的是什么，再点记下')
+    if (rec.result) showToast(her('先写下她说的是什么，再点记下'))
     return
   }
   const kind = sayKind.value
@@ -685,7 +686,7 @@ async function saveSay() {
         showToast(`给“${dup.word}”${hadAudio ? '换上' : '补上'}了录音`)
         resetSay()
       } else if (!audio) {
-        showToast(`“${say.input}”在 ${dup.date} 已经记过啦，可以录一段她的声音补上`)
+        showToast(her(`“${say.input}”在 ${dup.date} 已经记过啦，可以录一段她的声音补上`))
       }
       return
     }
@@ -693,8 +694,8 @@ async function saveSay() {
   await addWord({ word: say.input, kind, date: date.value, audio, funny: kind === '句子' && say.funny })
   if (kind === '词语') {
     const n = store.words.filter(w => ['词语', '发音'].includes(w.kind)).length
-    if (n % 10 === 0) stamp('新词', `她会说的第 ${n} 个词！`)
-    showToast(`这是她会说的第 ${n} 个词${audio ? '，声音也存好了' : ''}`)
+    if (n % 10 === 0) stamp('新词', her(`她会说的第 ${n} 个词！`))
+    showToast(her(`这是她会说的第 ${n} 个词${audio ? '，声音也存好了' : ''}`))
   } else {
     showToast(audio ? '记下了，连声音一起' : (say.funny ? '记下了这句金句 ✨' : '记下了'))
   }
@@ -833,7 +834,7 @@ function startSick() {
   const ill = startIllness({ date: date.value, symptoms: list })
   if (!ill) { showToast('上一场病还没点「好了」，先在那张卡里结束它'); return }
   if (sick.temp) addTemp(ill.id, sick.temp, sickTime())
-  stamp('生病', '开始不舒服，抱抱她')
+  stamp('生病', her('开始不舒服，抱抱她'))
   showToast('开了一张生病记，好了记得点「好了」')
   resetSickForm()
 }
@@ -931,7 +932,7 @@ function switchKind(tk) {
     return
   }
   updateWord(tk.word.id, { kind: s.to })
-  showToast(s.to === '词语' ? `“${tk.v.replace(/[“”]/g, '')}”改成了她会说的词` : `“${tk.v.replace(/[“”]/g, '')}”改成了认字`)
+  showToast(s.to === '词语' ? her(`“${tk.v.replace(/[“”]/g, '')}”改成了她会说的词`) : `“${tk.v.replace(/[“”]/g, '')}”改成了认字`)
 }
 
 // 日记里撤销一条记录（同时删掉对应模块里的数据）

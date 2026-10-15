@@ -2,7 +2,7 @@
 // 只读 store，不写数据。每行是一组 token：
 //   { t: 'text', v }                       普通文字
 //   { t: 'hl', v, kind, del?, badge? }     高亮内容（kind 决定颜色；del 用于在日记里撤销这条记录）
-import { store, MEALS, MOODS, getDiary, illnessOn, illnessDays, illnessMeds } from '../store.js'
+import { store, MEALS, MOODS, getDiary, illnessOn, illnessDays, illnessMeds, her } from '../store.js'
 
 const MEAL_WORD = { 早餐: '早饭', 午餐: '午饭', 晚餐: '晚饭', 加餐: '加餐' }
 const SPOKEN_KINDS = ['词语', '发音']
@@ -98,8 +98,8 @@ export function dayLines(date) {
   if (spoken.length) {
     const last = spoken[spoken.length - 1]
     const toks = spoken.map(w => hl(`“${w.word}”`, 'say', { del: { coll: 'words', id: w.id }, audio: w.audioUrl || '', word: { id: w.id, kind: w.kind } }))
-    const tokens = [txt('她说了新词'), ...joinTokens(toks)]
-    if (idx.get(last.id)) tokens.push(txt(`，这是她会说的第 ${idx.get(last.id)} 个词`))
+    const tokens = [txt(her('她说了新词')), ...joinTokens(toks)]
+    if (idx.get(last.id)) tokens.push(txt(her(`，这是她会说的第 ${idx.get(last.id)} 个词`)))
     tokens.push(txt('。'))
     lines.push({ key: 'say', tokens })
   }
@@ -107,13 +107,13 @@ export function dayLines(date) {
   for (const w of quotes) {
     lines.push({
       key: 'quote-' + w.id,
-      tokens: [txt('她说了句让人笑出声的话：'), hl(`“${w.word}”`, 'quote', { del: { coll: 'words', id: w.id }, audio: w.audioUrl || '', word: { id: w.id, kind: w.kind }, badge: '金句' })],
+      tokens: [txt(her('她说了句让人笑出声的话：')), hl(`“${w.word}”`, 'quote', { del: { coll: 'words', id: w.id }, audio: w.audioUrl || '', word: { id: w.id, kind: w.kind }, badge: '金句' })],
     })
   }
   const sentences = words.filter(w => w.kind === '句子' && !w.funny)
   if (sentences.length) {
     const toks = sentences.map(w => hl(`“${w.word}”`, 'say', { del: { coll: 'words', id: w.id }, audio: w.audioUrl || '', word: { id: w.id, kind: w.kind } }))
-    lines.push({ key: 'sentence', tokens: [txt(spoken.length || quotes.length ? '还说了' : '她说了'), ...joinTokens(toks), txt('。')] })
+    lines.push({ key: 'sentence', tokens: [txt(spoken.length || quotes.length ? '还说了' : her('她说了')), ...joinTokens(toks), txt('。')] })
   }
   const songs = words.filter(w => w.kind === '歌谣')
   if (songs.length) {

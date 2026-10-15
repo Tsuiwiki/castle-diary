@@ -1,7 +1,7 @@
 <template>
   <div class="view-head">
     <h2>饮食册</h2>
-    <div class="sub">她吃得杂不杂、爱吃什么、有没有要避开的 · 日常在日记里用「吃了」贴纸记就行</div>
+    <div class="sub">{{ ta() }}吃得杂不杂、爱吃什么、有没有要避开的 · 日常在日记里用「吃了」贴纸记就行</div>
   </div>
 
   <!-- 统计格 -->
@@ -182,6 +182,7 @@
 </template>
 
 <script setup>
+import { ta, her } from '../store.js'
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
 import RainbowPlate from '../components/RainbowPlate.vue'

@@ -47,7 +47,7 @@
 <script setup>
 // 分册总览：只做导航和已有数据摘要，不产生任何新业务数据
 import { computed } from 'vue'
-import { store } from '../store.js'
+import { store, her } from '../store.js'
 import Icon from '../components/Icon.vue'
 
 defineEmits(['go'])
@@ -55,7 +55,7 @@ defineEmits(['go'])
 const readSum = computed(() => {
   const b = store.books.length
   const w = store.words.length
-  if (!b && !w) return '还没开始：先添加一本绘本，或在今天的日记里记下她说的新词'
+  if (!b && !w) return her('还没开始：先添加一本绘本，或在今天的日记里记下她说的新词')
   const parts = []
   if (b) parts.push(`藏书 ${b} 本`)
   if (w) parts.push(`记下 ${w} 个词`)

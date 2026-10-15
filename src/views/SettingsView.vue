@@ -28,8 +28,16 @@
         <input type="date" v-model="birthday" />
       </div>
     </div>
+    <div class="form-row">
+      <label>日记里怎么称呼孩子</label>
+      <div class="chip-row">
+        <span v-for="p in PRONOUNS" :key="p.key" class="chip" :class="{ sel: pronoun === p.key }" @click="pronoun = p.key">{{ p.label }}</span>
+      </div>
+      <div class="pron-eg">示例：{{ pronounExample }}</div>
+    </div>
     <button class="btn-primary" @click="saveProfile">保存</button>
     <span v-if="savedTip" style="margin-left:10px;font-size:12px;color:var(--green)">已保存</span>
+    <a class="replay-ob" @click="replayOnboarding">再看一遍新手引导</a>
   </div>
 
   <!-- 陪读偏好 -->
@@ -185,7 +193,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { PRONOUNS } from '../store.js'
+import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
 import { store, updateSettings, exportBackup, importBackup, resetAll, todayStr, markExported, autoBackup, enableAutoBackup, resumeAutoBackup, disableAutoBackup } from '../store.js'
 import { SEASON_BG_PREFS } from '../utils/seasonTheme.js'
@@ -195,6 +204,11 @@ import { speak, listZhVoices, getTtsVoiceName, setTtsVoiceName } from '../utils/
 
 const childName = ref(store.settings.childName)
 const birthday = ref(store.settings.birthday)
+const pronoun = ref(store.settings.pronoun || 'she')
+const pronounExample = computed(() => {
+  const w = pronoun.value === 'he' ? '他' : pronoun.value === 'baby' ? '宝宝' : pronoun.value === 'name' ? (childName.value || '宝宝') : '她'
+  return `${w}今天说了新词“月亮”，这是${w}会说的第 3 个词。`
+})
 const savedTip = ref(false)
 const ocrKey = ref(hasCustomOcrKey() ? getOcrKey() : '')
 const importInput = ref(null)
@@ -216,8 +230,12 @@ function saveTts() {
   updateSettings({ tts: ttsOn.value })
 }
 
+function replayOnboarding() {
+  window.dispatchEvent(new Event('castle-replay-onboarding'))
+}
+
 function saveProfile() {
-  updateSettings({ childName: childName.value, birthday: birthday.value })
+  updateSettings({ childName: childName.value, birthday: birthday.value, pronoun: pronoun.value })
   savedTip.value = true
   setTimeout(() => savedTip.value = false, 1500)
 }
@@ -394,6 +412,8 @@ function toast(m) {
 </script>
 
 <style scoped>
+.replay-ob { float: right; margin-top: 10px; font-size: 12px; color: var(--ink-2); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.pron-eg { font-size: 12px; color: var(--ink-2); margin-top: 6px; }
 /* 设置页快速定位目录 */
 .st-toc { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; }
 .st-toc a { flex: none; font-size: 12.5px; color: var(--ink-2); background: rgba(255,255,255,.6); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; text-decoration: none; }

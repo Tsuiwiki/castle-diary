@@ -1,5 +1,5 @@
 // ========== 月龄卡：每月生日那天，把上个月画成一张可以保存的图 ==========
-import { store, todayStr, babyAgeText } from '../store.js'
+import { store, todayStr, babyAgeText, her } from '../store.js'
 
 const CW = 620
 const CH = 820
@@ -55,7 +55,7 @@ export function cardData(period) {
   const vac = healths.filter(h => h.kind === '疫苗')
   if (vac.length) lines.push(`打了疫苗：${vac.map(h => h.title).join('、')}`)
   const ills = store.illnesses.filter(i => i.start <= end && (!i.end || i.end >= start))
-  for (const i of ills) lines.push(`生了一次病：${i.symptoms.join('、') || '不舒服'}，${i.end ? '好了' : '在好起来'}，抱抱她`)
+  for (const i of ills) lines.push(her(`生了一次病：${i.symptoms.join('、') || '不舒服'}，${i.end ? '好了' : '在好起来'}，抱抱她`))
   const milestones = store.milestones.filter(m => inRange(m.date, start, end) && m.source !== '餐桌')
   for (const m of milestones.slice(0, 2)) lines.push(`🏁 ${m.title}`)
   const photoCount = store.photos.filter(p => inRange(p.date, start, end)).length

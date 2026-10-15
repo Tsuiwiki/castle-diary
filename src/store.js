@@ -9,7 +9,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.33.1'
+export const APP_VERSION = '0.36.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -367,6 +367,27 @@ async function init() {
 init()
 
 // ---------- 档案 ----------
+// ---------- 称呼（v0.35）：界面里所有指代孩子的「她」都从这里来 ----------
+// 老数据没有 pronoun 字段 = 'she'，保持原样
+export const PRONOUNS = [
+  { key: 'she', label: '她' },
+  { key: 'he', label: '他' },
+  { key: 'baby', label: '宝宝' },
+  { key: 'name', label: '用小名' },
+]
+export function ta() {
+  const p = store.settings.pronoun
+  if (p === 'he') return '他'
+  if (p === 'baby') return '宝宝'
+  if (p === 'name') return store.settings.childName || '宝宝'
+  return '她'
+}
+// 把文案里的「她」换成当前称呼（只用于界面文案，不处理用户自己写的日记正文）
+export function her(text) {
+  const w = ta()
+  return w === '她' ? String(text ?? '') : String(text ?? '').replace(/她/g, w)
+}
+
 export function updateSettings(patch) {
   const { childName, birthday, tts, ...rest } = patch
   if (childName !== undefined) store.settings.childName = childName

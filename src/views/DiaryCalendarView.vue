@@ -1,7 +1,7 @@
 <template>
   <div class="view-head">
     <h2>日记日历</h2>
-    <div class="sub">点一天先看看那天记了什么，想细看再翻开日记；颜色是她那天的心情</div>
+    <div class="sub">点一天先看看那天记了什么，想细看再翻开日记；颜色是{{ ta() }}那天的心情</div>
   </div>
 
   <div class="card">
@@ -65,6 +65,7 @@
 </template>
 
 <script setup>
+import { ta, her } from '../store.js'
 import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
 import { store, MOODS, diaryDate, todayStr, getDiary } from '../store.js'

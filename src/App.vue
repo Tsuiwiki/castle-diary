@@ -118,6 +118,9 @@
     <!-- 翻卡巩固（未掌握优先，词库为空时提示） -->
     <WordCardSheet v-if="cardOpen" :words="store.words" @close="cardOpen = false" />
 
+    <!-- 新手引导：全新安装时出现一次（设置里可重看） -->
+    <Onboarding v-if="showOnboarding" @done="onboardDone" @import="onboardImport" />
+
     <!-- 播放录音失败的原因（日记、词库、翻卡共用） -->
     <div v-if="audioError" class="toast toast-err">{{ audioError }}</div>
   </div>
@@ -128,6 +131,7 @@
 import { ref, computed, watch, nextTick , onMounted, onBeforeUnmount } from 'vue'
 import Icon from './components/Icon.vue'
 import DiaryView from './views/DiaryView.vue'
+import Onboarding from './components/Onboarding.vue'
 import DiaryCalendarView from './views/DiaryCalendarView.vue'
 import CollectionsHomeView from './views/CollectionsHomeView.vue'
 import ShelfView from './views/ShelfView.vue'
@@ -148,7 +152,7 @@ import MembersView from './views/MembersView.vue'
 import RemindersView from './views/RemindersView.vue'
 import SettingsView from './views/SettingsView.vue'
 import WordCardSheet from './components/WordCardSheet.vue'
-import { store, ready, APP_VERSION, addBookSignal, diaryDate, todayStr, storageError, dataCorrupt, downloadCorruptRaw, importBackup, resetAll } from './store.js'
+import { her, store, ready, updateSettings, APP_VERSION, addBookSignal, diaryDate, todayStr, storageError, dataCorrupt, downloadCorruptRaw, importBackup, resetAll } from './store.js'
 import { lock, initAppLock, onHidden, onVisible, onStorageSignal, lockNow } from './utils/appLock.js'
 import { applySeasonTheme } from './utils/seasonTheme.js'
 import AppLockOverlay from './components/AppLockOverlay.vue'
@@ -280,6 +284,30 @@ function switchView(key) {
   if (g) lastChild[g.key] = key
 }
 
+// ---------- 新手引导 ----------
+// 判定"全新安装"：没填过小名、也没有任何记录。老用户（有数据但没有 onboarded 字段）静默标记，永远不打扰。
+const hasAnyData = () => !!(store.settings.childName || store.diaries.length || store.books.length || store.words.length ||
+  store.meals.length || store.photos.length || store.trips.length || store.games.length || store.healths.length || store.illnesses.length)
+// 只在加载完成时判定一次并锁定：引导第 1 步会先存小名，不能因此让引导框中途消失
+const replayOnboarding = ref(false)
+const showOnboarding = computed(() => ready.value && lock.ready && !dataCorrupt.value && replayOnboarding.value)
+watch(ready, ok => {
+  if (!ok || store.settings.onboarded) return
+  if (hasAnyData()) updateSettings({ onboarded: true, pwaHintShown: true })
+  else replayOnboarding.value = true
+}, { immediate: true })
+function onboardDone() {
+  replayOnboarding.value = false
+  switchView('diary')
+}
+function onboardImport() {
+  replayOnboarding.value = false
+  switchView('settings')
+  nextTick(() => document.getElementById('st-backup')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+// 设置页「再看一遍新手引导」
+window.addEventListener('castle-replay-onboarding', () => { replayOnboarding.value = true })
+
 // 子页面之间的跳转（提醒、档案、日记页都会用到）
 function go(key) {
   if (key === 'shelf-add') {
@@ -292,7 +320,7 @@ function go(key) {
 
 function openCards() {
   if (!store.words.length) {
-    alert('词库还是空的，先在日记里记几个她说的词，或去书房读本书、记几个词吧')
+    alert(her('词库还是空的，先在日记里记几个她说的词，或去书房读本书、记几个词吧'))
     return
   }
   cardOpen.value = true

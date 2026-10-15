@@ -1,7 +1,7 @@
 <template>
   <div class="view-head">
     <h2>足迹册</h2>
-    <div class="sub">她去过的每个地方都是一枚邮票，去得越多邮戳越多 · 日常在日记里用「去了」贴纸记</div>
+    <div class="sub">{{ ta() }}去过的每个地方都是一枚邮票，去得越多邮戳越多 · 日常在日记里用「去了」贴纸记</div>
   </div>
 
   <div class="stat-row">
@@ -115,7 +115,7 @@
     <div class="col">
       <div class="card">
         <div class="card-title"><span class="ct-left"><Icon name="camera" :size="16" />月份胶片</span><span class="more">{{ store.trips.length }} 次出行</span></div>
-        <div v-if="!months.length" class="empty">还没有出行记录，周末带她出去走走吧</div>
+        <div v-if="!months.length" class="empty">还没有出行记录，周末带{{ ta() }}出去走走吧</div>
         <div v-for="m in months" :key="m.month" class="film-month">
           <div class="fm-title">{{ m.label }}<span class="day-count">{{ m.trips.length }} 次 · {{ m.placeCount }} 个地方</span></div>
           <div class="film">
@@ -135,6 +135,7 @@
 </template>
 
 <script setup>
+import { ta, her } from '../store.js'
 import { ref, reactive, computed } from 'vue'
 import Icon from '../components/Icon.vue'
 import { store, addTrip, removeTrip, topPlaces, todayStr, PLACE_CATS, placeCatOf, setPlaceCat } from '../store.js'
