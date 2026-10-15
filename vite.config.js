@@ -2,12 +2,13 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig({
+// npm run build:app（安卓 App）不注册 Service Worker：App 自带离线能力，缓存只会让新版本迟迟不生效
+export default defineConfig(({ mode }) => ({
   // 相对路径构建：GitHub Pages 子路径（/仓库名/）下也能跑；WorkBuddy 托管不受影响
   base: './',
   plugins: [
     vue(),
-    VitePWA({
+    mode !== 'app' && VitePWA({
       registerType: 'autoUpdate',
       manifest: {
         name: '城堡日记',
@@ -31,4 +32,4 @@ export default defineConfig({
     port: Number(process.env.PORT) || 5174,
     allowedHosts: true,
   }
-})
+}))

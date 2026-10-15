@@ -12,7 +12,7 @@
           <button class="btn-primary" :disabled="!months.length" @click="doPrint">打印 / 保存为 PDF</button>
         </div>
       </div>
-      <div class="gb-tip">在弹出的打印窗口里，"目标打印机"选「另存为 PDF」就能得到 PDF 文件；勾选"背景图形"颜色会更好看。全程在本机生成，不上传任何内容。</div>
+      <div class="gb-tip">{{ isApp() ? '在弹出的打印页面里，打印机选「另存为 PDF」就能得到 PDF 文件，可以存到手机或发给家人。' : '在弹出的打印窗口里，"目标打印机"选「另存为 PDF」就能得到 PDF 文件；勾选"背景图形"颜色会更好看。' }}全程在本机生成，不上传任何内容。</div>
 
       <div class="gb-preface-edit">
         <label>写在前面（可选，会印在第二页）</label>
@@ -106,6 +106,7 @@
 </template>
 
 <script setup>
+import { isApp, printPage } from '../utils/platform.js'
 // 年度成长书：纯本地拼版，借浏览器「打印 → 另存为 PDF」输出。不引入 PDF 库、不上传任何内容。
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import CastleSvg from './CastleSvg.vue'
@@ -208,18 +209,24 @@ function doPrint() {
   const prevTitle = document.title
   document.title = `${name.value}的${props.year}-成长书`
   const done = () => {
-    document.body.classList.remove('gb-printing')
+    if (!isApp()) document.body.classList.remove('gb-printing')
     document.title = prevTitle
     window.removeEventListener('afterprint', done)
   }
   window.addEventListener('afterprint', done)
   // 等图片解码完再打印，避免照片空白
   const imgs = [...document.querySelectorAll('.gb-book img')]
-  Promise.all(imgs.map(i => (i.complete ? null : new Promise(r => { i.onload = i.onerror = r })))).then(() => window.print())
+  Promise.all(imgs.map(i => (i.complete ? null : new Promise(r => { i.onload = i.onerror = r }))))
+    .then(() => printPage(document.title))
+    .catch(e => { done(); alert('打印没有打开：' + (e?.message || e)) })
 }
 
 function onKey(e) { if (e.key === 'Escape') emit('close') }
-onMounted(() => { document.body.style.overflow = 'hidden'; window.addEventListener('keydown', onKey) })
+onMounted(() => {
+  document.body.style.overflow = 'hidden'
+  window.addEventListener('keydown', onKey)
+  if (isApp()) document.body.classList.add('gb-printing')
+})
 onBeforeUnmount(() => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); document.body.classList.remove('gb-printing') })
 </script>
 

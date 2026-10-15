@@ -408,7 +408,7 @@
         <div class="mc-tip">{{ monthCard.periodLabel }}</div>
         <div class="mc-actions">
           <button class="btn-primary" @click="downloadCard"><Icon name="download" :size="15" />保存图片</button>
-          <button class="mini-btn ghost" @click="copyCard">{{ monthCard.copied ? '已复制 ✓' : '复制图片' }}</button>
+          <button class="mini-btn ghost" @click="copyCard">{{ monthCard.copied ? '已复制 ✓' : (isApp() ? '分享图片' : '复制图片') }}</button>
         </div>
       </template>
       <div v-else class="empty">先在「设置 → 孩子档案」填好生日，每个月龄生日就能出一张卡</div>
@@ -438,6 +438,7 @@
 </template>
 
 <script setup>
+import { isApp, saveFile, copyOrShareImage } from '../utils/platform.js'
 import { ta, her } from '../store.js'
 import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import Icon from '../components/Icon.vue'
@@ -993,18 +994,17 @@ async function openMonthCard() {
   }
 }
 function closeMonthCard() { monthCard.show = false }
-function downloadCard() {
-  const a = document.createElement('a')
-  a.href = monthCard.url
+function cardFileName() {
   const period = latestCardPeriod()
-  a.download = `月龄卡-${period ? period.months : ''}个月-${todayStr().replaceAll('-', '')}.png`
-  a.click()
+  return `月龄卡-${period ? period.months : ''}个月-${todayStr().replaceAll('-', '')}.png`
+}
+async function downloadCard() {
+  try { await saveFile(cardFileName(), monthCard.url, 'image/png') } catch { showToast('图片没保存成功，再试一次') }
 }
 async function copyCard() {
   try {
     const blob = await (await fetch(monthCard.url)).blob()
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-    monthCard.copied = true
+    if ((await copyOrShareImage(cardFileName(), blob)) === 'copied') monthCard.copied = true
   } catch {
     showToast('复制图片没成功，用「保存图片」吧')
   }

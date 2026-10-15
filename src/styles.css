@@ -917,3 +917,9 @@ body[data-season-bg='off'] .nature-scenery { display: none; }
 @media (max-width: 767px) {
   .card, .sidebar, .rail-card { backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
+
+/* ---------- 安卓 App（Capacitor）：顶部让出状态栏，底部 tabbar 已有安全区 ---------- */
+html.is-app .shell {
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  box-sizing: border-box;
+}

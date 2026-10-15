@@ -20,7 +20,7 @@
             <span v-for="p in PRONOUNS" :key="p.key" class="chip" :class="{ sel: pronoun === p.key }" @click="pronoun = p.key">{{ p.label }}</span>
           </div>
         </div>
-        <p class="ob-note">生日用来算月龄、排疫苗；以后都可以在「设置」里改。</p>
+        <p class="ob-note">生日用来算月龄、排疫苗；以后都可以在「设置」里改。所有内容只存在这台设备上，详见<a class="ob-link" href="./privacy.html">隐私政策</a>。</p>
         <div class="ob-actions">
           <a class="ob-link" @click="toImport">换了设备？导入之前的备份</a>
           <button class="btn-primary" @click="saveProfile(); step = 2">下一步</button>
@@ -60,7 +60,8 @@
         </ul>
         <div class="ob-privacy">
           <Icon name="lock" :size="16" />
-          <div>所有记录只保存在<b>这台设备的浏览器</b>里，不需要注册，也不会上传。记得隔一段时间在「设置 → 备份」导出一份；手机上建议「添加到主屏幕」，用起来像 App，数据也更稳。</div>
+          <div v-if="isApp()">所有记录只保存在<b>这台手机</b>里，不需要注册，也不会上传。<b>卸载 App 会把记录一起删掉</b>，换手机或卸载前，先在「设置 → 备份」导出一份。</div>
+          <div v-else>所有记录只保存在<b>这台设备的浏览器</b>里，不需要注册，也不会上传。记得隔一段时间在「设置 → 备份」导出一份；手机上建议「添加到主屏幕」，用起来像 App，数据也更稳。</div>
         </div>
         <div class="ob-actions">
           <a class="ob-link" @click="step = 2">上一步</a>
@@ -72,6 +73,7 @@
 </template>
 
 <script setup>
+import { isApp } from '../utils/platform.js'
 // 新手引导：只在全新安装（没有任何记录、也没填过小名）时出现一次；设置里可以重看。
 // 第 2 步的贴纸是纯演示，不写入任何数据。
 import { ref, computed } from 'vue'

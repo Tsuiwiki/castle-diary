@@ -185,7 +185,7 @@
         <pre v-else class="wk-export sh-text">{{ share.text }}</pre>
         <div class="ps-actions">
           <button class="btn-primary" @click="savePoster"><Icon name="download" :size="15" />保存图片</button>
-          <button class="mini-btn ghost" @click="copyPoster">{{ share.copiedImg ? '已复制 ✓' : '复制图片' }}</button>
+          <button class="mini-btn ghost" @click="copyPoster">{{ share.copiedImg ? '已复制 ✓' : (isApp() ? '分享图片' : '复制图片') }}</button>
           <button class="mini-btn ghost" @click="copyShareText">{{ share.copiedText ? '已复制 ✓' : '复制文本' }}</button>
         </div>
       </template>
@@ -195,6 +195,7 @@
 </template>
 
 <script setup>
+import { isApp, saveFile, copyOrShareImage } from '../utils/platform.js'
 import { ref, reactive, computed } from 'vue'
 import Icon from '../components/Icon.vue'
 import RainbowPlate from '../components/RainbowPlate.vue'
@@ -311,17 +312,14 @@ async function generatePreview() {
     share.loading = false
   }
 }
-function savePoster() {
-  const a = document.createElement('a')
-  a.href = share.url
-  a.download = `成长周报-${weekRange.value.start.replaceAll('-', '')}.png`
-  a.click()
+const posterName = () => `成长周报-${weekRange.value.start.replaceAll('-', '')}.png`
+async function savePoster() {
+  try { await saveFile(posterName(), share.url, 'image/png') } catch { alert('图片没保存成功，再试一次') }
 }
 async function copyPoster() {
   try {
     const blob = await (await fetch(share.url)).blob()
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-    share.copiedImg = true
+    if ((await copyOrShareImage(posterName(), blob)) === 'copied') share.copiedImg = true
   } catch { alert('复制图片没成功，用「保存图片」吧') }
 }
 async function copyShareText() {

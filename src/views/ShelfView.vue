@@ -93,7 +93,7 @@
   >
     <div class="card-title">
       <span class="ct-left"><Icon name="plus" :size="16" />新书上架</span>
-      <span class="more">拍封面 / 拖图可自动识别书名</span>
+      <span class="more">{{ isApp() ? '可以拍一张封面当书的封面' : '拍封面 / 拖图可自动识别书名' }}</span>
     </div>
     <div class="inline-add">
       <input ref="titleInput" v-model.trim="newTitle" placeholder="绘本名称" style="flex:1.4" @keyup.enter="add" />
@@ -113,7 +113,7 @@
     </div>
     <div class="cover-row">
       <button class="ocr-btn" :disabled="ocrLoading" @click="fileInput.click()">
-        <Icon name="scan" :size="16" />{{ ocrLoading ? '识别中…' : '拍封面识别书名' }}
+        <Icon :name="isApp() ? 'camera' : 'scan'" :size="16" />{{ ocrLoading ? '识别中…' : (isApp() ? '拍封面' : '拍封面识别书名') }}
       </button>
       <div v-if="pendingCover" class="cover-preview">
         <img :src="pendingCover" alt="封面预览" />
@@ -221,6 +221,7 @@
 </template>
 
 <script setup>
+import { isApp } from '../utils/platform.js'
 import { ref, computed, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import { store, monthReadStats, readingTrend, addBook, setBookCover, addRead, addWord, nowLocal, WORD_KINDS, BOOK_CATEGORIES, addBookSignal, updateSettings } from '../store.js'
@@ -455,7 +456,9 @@ async function processCover(file) {
 async function onCover(e) {
   const file = e.target.files?.[0]
   e.target.value = ''
-  if (!file || !confirmOcrFirstUse()) return
+  if (!file) return
+  if (isApp()) { pendingCover.value = await compressImage(file); return } // App 版不联网，只当封面用
+  if (!confirmOcrFirstUse()) return
   await processCover(file)
 }
 

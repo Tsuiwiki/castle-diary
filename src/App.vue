@@ -66,7 +66,7 @@
         <div class="ss-item"><span>城堡藏书</span><b>{{ store.books.length }}</b><span>本</span></div>
       </div>
       <div class="side-foot">
-        数据保存在本机浏览器<br>设置页可导出备份 · v{{ APP_VERSION }}
+        数据保存在{{ isApp() ? '这台手机' : '本机浏览器' }}<br>设置页可导出备份 · {{ platformLabel() }} v{{ APP_VERSION }}
       </div>
     </nav>
 
@@ -132,6 +132,7 @@ import { ref, computed, watch, nextTick , onMounted, onBeforeUnmount } from 'vue
 import Icon from './components/Icon.vue'
 import DiaryView from './views/DiaryView.vue'
 import Onboarding from './components/Onboarding.vue'
+import { initAppShell, isApp, platformLabel } from './utils/platform.js'
 import DiaryCalendarView from './views/DiaryCalendarView.vue'
 import CollectionsHomeView from './views/CollectionsHomeView.vue'
 import ShelfView from './views/ShelfView.vue'
@@ -305,6 +306,25 @@ function onboardImport() {
   switchView('settings')
   nextTick(() => document.getElementById('st-backup')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 }
+// ---------- 安卓返回键：先关最上层的弹层，再回日记页，在日记页就退到后台 ----------
+function closeTopOverlay() {
+  const masks = [...document.querySelectorAll('.drawer-mask, .lb-mask')]
+  if (masks.length) { masks[masks.length - 1].click(); return true }
+  if (document.querySelector('.ob-mask')) return true // 新手引导里返回键不做事，用「跳过」
+  if (document.querySelector('.card-mask, .gb-root') || document.querySelector('.stickers .sticker.on')) {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    return true
+  }
+  return false
+}
+initAppShell({
+  fallback: () => {
+    if (closeTopOverlay()) return true
+    if (view.value !== 'diary') { switchView('diary'); return true }
+    return false
+  },
+})
+
 // 设置页「再看一遍新手引导」
 window.addEventListener('castle-replay-onboarding', () => { replayOnboarding.value = true })
 

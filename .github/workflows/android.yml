@@ -1,0 +1,126 @@
+name: 安卓 App 打包
+
+on:
+  push:
+    branches: [android]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+      - run: npm test
+      - run: node scripts/check-season.mjs
+
+      - name: 构建 App 版网页并同步到安卓工程
+        run: |
+          npm run build:app
+          npx cap sync android
+
+      - name: 还原签名密钥（只存在于本次运行的临时目录）
+        env:
+          KS_B64: ${{ secrets.CASTLE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then echo "::error::缺少 CASTLE_KEYSTORE_BASE64，无法签名"; exit 1; fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/castle.p12"
+          echo "CASTLE_KEYSTORE_PATH=$RUNNER_TEMP/castle.p12" >> "$GITHUB_ENV"
+
+      - name: Gradle 打包签名 APK
+        working-directory: android
+        env:
+          CASTLE_KEYSTORE_PASSWORD: ${{ secrets.CASTLE_KEYSTORE_PASSWORD }}
+          CASTLE_KEY_ALIAS: ${{ secrets.CASTLE_KEY_ALIAS }}
+          CASTLE_KEY_PASSWORD: ${{ secrets.CASTLE_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: 校验签名并命名
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          "$ANDROID_HOME/build-tools/$BT/apksigner" verify --print-certs "$APK" | tee apk-cert.txt
+          "$ANDROID_HOME/build-tools/$BT/aapt2" dump badging "$APK" | grep -E "^package|uses-permission|sdkVersion" | tee apk-info.txt
+          mkdir -p out
+          cp "$APK" "out/castle-diary-$VERSION.apk"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: castle-diary-apk
+          path: |
+            out/*.apk
+            apk-cert.txt
+            apk-info.txt
+
+      - name: 发布到 GitHub Releases（只在打 v* 标签时）
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.apk
+          body: |
+            城堡日记安卓版 ${{ env.VERSION }}
+            - 下载 APK，在手机上打开安装（需要允许"安装未知来源应用"）
+            - 所有记录只保存在手机里，卸载会删除数据，卸载或换手机前请先在「设置 → 备份」导出
+
+  smoke-test:
+    needs: build-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: castle-diary-apk
+
+      - name: 开启 KVM（模拟器加速）
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: 在模拟器里安装、启动并截图
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb install -r out/*.apk
+            adb shell monkey -p io.github.tsuiwiki.castlediary -c android.intent.category.LAUNCHER 1
+            sleep 25
+            adb exec-out screencap -p > launch.png
+            adb shell dumpsys package io.github.tsuiwiki.castlediary | grep -E "versionName|versionCode|granted=" > installed.txt || true
+            adb logcat -d -s chromium:I Capacitor:V Capacitor/Console:V AndroidRuntime:E '*:F' > logcat.txt || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test
+          path: |
+            launch.png
+            installed.txt
+            logcat.txt

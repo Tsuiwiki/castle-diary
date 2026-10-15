@@ -9,7 +9,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.36.0'
+export const APP_VERSION = '0.37.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -114,15 +114,11 @@ export const dataCorrupt = ref(false)
 export const lastSavedAt = ref(0)
 
 // 恢复页用：把损坏原文下载成副本（可能含个人数据，文件名已注明）
-export function downloadCorruptRaw() {
+export async function downloadCorruptRaw() {
   const raw = localStorage.getItem(LS_KEY)
   if (!raw) return
-  const blob = new Blob([raw], { type: 'text/plain' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `城堡日记-损坏数据副本-${todayStr().replaceAll('-', '')}.txt`
-  a.click()
-  URL.revokeObjectURL(a.href)
+  const { saveFile } = await import('./utils/platform.js')
+  await saveFile(`城堡日记-损坏数据副本-${todayStr().replaceAll('-', '')}.txt`, new Blob([raw], { type: 'text/plain' }), 'text/plain')
 }
 let lastPersistFailed = false
 

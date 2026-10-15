@@ -37,7 +37,7 @@
     </div>
     <button class="btn-primary" @click="saveProfile">保存</button>
     <span v-if="savedTip" style="margin-left:10px;font-size:12px;color:var(--green)">已保存</span>
-    <a class="replay-ob" @click="replayOnboarding">再看一遍新手引导</a>
+    <span class="replay-ob"><a href="./privacy.html">隐私政策</a> · <a @click="replayOnboarding">再看一遍新手引导</a></span>
   </div>
 
   <!-- 陪读偏好 -->
@@ -167,8 +167,8 @@
     </p>
   </div>
 
-  <!-- OCR 设置 -->
-  <div class="card" id="st-ocr">
+  <!-- OCR 设置（安卓 App 版不联网，不提供封面识别） -->
+  <div v-if="!isApp()" class="card" id="st-ocr">
     <div class="card-title">
       <span class="ct-left"><Icon name="scan" :size="16" />封面识别（OCR）</span>
       <span class="more">{{ hasCustomOcrKey() ? '已用自己的 key' : '正在用公共 demo key' }}</span>
@@ -193,6 +193,7 @@
 </template>
 
 <script setup>
+import { isApp, saveFile, platformLabel } from '../utils/platform.js'
 import { PRONOUNS } from '../store.js'
 import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
@@ -264,16 +265,13 @@ async function doExport() {
   const warning = data.__mediaWarning || ''
   delete data.__mediaWarning
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
+  const r = await saveFile(`城堡日记-备份-${todayStr().replaceAll('-', '')}.json`, blob, 'application/json')
+  if (r === 'cancelled') return // 在分享面板里取消了，不算已备份
   if (warning) {
-    alert('备份文件已下载，但要注意：' + warning + '。这次不记为"已备份"。')
+    alert('备份文件已生成，但要注意：' + warning + '。这次不记为"已备份"。')
   } else {
     markExported()
   }
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `城堡日记-备份-${todayStr().replaceAll('-', '')}.json`
-  a.click()
-  URL.revokeObjectURL(a.href)
 }
 
 async function onImport(e) {
@@ -412,7 +410,8 @@ function toast(m) {
 </script>
 
 <style scoped>
-.replay-ob { float: right; margin-top: 10px; font-size: 12px; color: var(--ink-2); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.replay-ob { float: right; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+.replay-ob a { color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .pron-eg { font-size: 12px; color: var(--ink-2); margin-top: 6px; }
 /* 设置页快速定位目录 */
 .st-toc { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; }
