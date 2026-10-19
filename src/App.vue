@@ -311,7 +311,7 @@ function closeTopOverlay() {
   const masks = [...document.querySelectorAll('.drawer-mask, .lb-mask')]
   if (masks.length) { masks[masks.length - 1].click(); return true }
   if (document.querySelector('.ob-mask')) return true // 新手引导里返回键不做事，用「跳过」
-  if (document.querySelector('.card-mask, .gb-root') || document.querySelector('.stickers .sticker.on')) {
+  if (document.querySelector('.card-mask, .gb-root') || document.querySelector('.pf-edit textarea') || document.querySelector('.stickers .sticker.on')) {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     return true
   }
