@@ -47,7 +47,7 @@
       </button>
       <div class="brand">
         <Icon name="castle" :size="24" />
-        <span class="brand-text">城堡日记<span class="brand-sub">{{ store.settings.childName ? store.settings.childName + '的小城堡' : '一天一页的成长日记' }}</span></span>
+        <span class="brand-text">城堡日记<span class="brand-sub">{{ store.settings.childName ? store.settings.childName + '的小城堡' : '随手写写的成长日记' }}</span></span>
       </div>
       <div
         v-for="n in NAV" :key="n.key"
@@ -61,9 +61,9 @@
       </div>
       <!-- 本月概况 -->
       <div class="side-stats">
-        <div class="ss-item"><span>本月写了</span><b>{{ monthDays }}</b><span>天日记</span></div>
         <div class="ss-item"><span>存了</span><b>{{ store.photos.length }}</b><span>张照片</span></div>
         <div class="ss-item"><span>城堡藏书</span><b>{{ store.books.length }}</b><span>本</span></div>
+        <div class="ss-item"><span>会说的词</span><b>{{ store.words.length }}</b><span>个</span></div>
       </div>
       <div class="side-foot">
         数据保存在{{ isApp() ? '这台手机' : '本机浏览器' }}<br>设置页可导出备份 · {{ platformLabel() }} v{{ APP_VERSION }}
@@ -208,24 +208,16 @@ function onVisChange() {
   if (document.hidden) onHidden()
   else onVisible()
 }
-import { monthIndex } from './utils/diaryText.js'
 import { audioError } from './utils/recorder.js'
 
 // 一级入口 6 个；带 children 的是"分组"，进入后顶部出子标签切换原有页面
+// v2.0 信息架构：四个一级入口——日记 / 回忆 / 分册 / 我的（PRD V1.0）
 const NAV = [
-  { key: 'diary', icon: 'book', label: '今天的日记', short: '日记' },
-  { key: 'calendar', icon: 'calendar', label: '日记日历', short: '日历' },
   {
-    key: 'g-books', icon: 'library', label: '分册', short: '分册',
+    key: 'g-diary', icon: 'book', label: '日记', short: '日记',
     children: [
-      { key: 'collections', icon: 'library', label: '总览' },
-      { key: 'shelf', icon: 'library', label: '书房' },
-      { key: 'words', icon: 'message-circle', label: '识字词库' },
-      { key: 'cards', icon: 'sparkles', label: '翻卡巩固' },
-      { key: 'diet', icon: 'utensils', label: '饮食册' },
-      { key: 'games', icon: 'sparkles', label: '游戏册' },
-      { key: 'toys', icon: 'blocks', label: '玩具屋' },
-      { key: 'trips', icon: 'map-pin', label: '足迹册' },
+      { key: 'diary', icon: 'book', label: '今天的日记' },
+      { key: 'calendar', icon: 'calendar', label: '日记日历' },
     ],
   },
   {
@@ -238,8 +230,16 @@ const NAV = [
     ],
   },
   {
-    key: 'g-health', icon: 'heart-pulse', label: '健康', short: '健康',
+    key: 'g-books', icon: 'library', label: '分册', short: '分册',
     children: [
+      { key: 'collections', icon: 'library', label: '总览' },
+      { key: 'shelf', icon: 'library', label: '书房' },
+      { key: 'words', icon: 'message-circle', label: '识字词库' },
+      { key: 'cards', icon: 'sparkles', label: '翻卡巩固' },
+      { key: 'diet', icon: 'utensils', label: '饮食册' },
+      { key: 'games', icon: 'sparkles', label: '游戏册' },
+      { key: 'toys', icon: 'blocks', label: '玩具屋' },
+      { key: 'trips', icon: 'map-pin', label: '足迹册' },
       { key: 'health', icon: 'heart-pulse', label: '健康档案' },
       { key: 'illness', icon: 'alert-triangle', label: '生病记' },
       { key: 'medicine', icon: 'pill', label: '药箱' },
@@ -247,10 +247,10 @@ const NAV = [
     ],
   },
   {
-    key: 'g-settings', icon: 'settings', label: '设置', short: '设置',
+    key: 'g-mine', icon: 'settings', label: '我的', short: '我的',
     children: [
       { key: 'settings', icon: 'settings', label: '设置' },
-      { key: 'members', icon: 'users', label: '家庭成员管理' },
+      { key: 'members', icon: 'users', label: '家庭成员' },
     ],
   },
 ]
@@ -264,16 +264,16 @@ const groupOf = key => NAV.find(n => n.children?.some(c => c.key === key))
 const currentGroup = computed(() => groupOf(view.value) || null)
 const activeTop = computed(() => currentGroup.value?.key || view.value)
 
-const monthDays = computed(() => Object.keys(monthIndex(todayStr().slice(0, 7))).length)
 
 function clickTop(n) {
   if (n.children) {
     // 分册特殊化：每次点击都回总览，不直接跳进某个具体分册
     if (n.key === 'g-books') { switchView('collections'); return }
+    // 日记组：点一级永远回「今天的日记」
+    if (n.key === 'g-diary') { diaryDate.value = todayStr(); switchView('diary'); return }
     switchView(lastChild[n.key] || n.children[0].key)
     return
   }
-  if (n.key === 'diary') diaryDate.value = todayStr()
   switchView(n.key)
 }
 

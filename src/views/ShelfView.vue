@@ -165,7 +165,7 @@
             <template v-if="wordFor !== b.id">
               <div class="bo-stats">已读 {{ b.reads.length }} 次 · 词 {{ wordCount(b.title) }}</div>
               <button class="bo-btn" @click="quickRead(b)">
-                <Icon name="book-open" :size="14" />{{ justRead === b.id ? '已打卡 +15分钟' : '+ 记一次阅读' }}
+                <Icon name="book-open" :size="14" />{{ justRead === b.id ? '已记下 +15分钟' : '+ 记一次阅读' }}
               </button>
               <button class="bo-btn" @click="wordFor = b.id"><Icon name="message-circle" :size="14" />录入新词</button>
               <button class="bo-btn bo-primary" @click="$emit('open', b.id)"><Icon name="chevron-right" :size="14" />查看详情</button>
