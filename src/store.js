@@ -284,7 +284,7 @@ export function markExported() {
 // ---------- 自动备份到本地文件夹（v0.18，File System Access API，仅电脑端 Chrome/Edge） ----------
 // 句柄存在 IndexedDB（结构化克隆），localStorage 只存开关与时间。
 // 每天第一次有改动后静默写一个「城堡日记-自动备份.json」；权限被收回就在设置页提示重新授权。
-export const autoBackup = reactive({ supported: !!window.showDirectoryPicker, enabled: false, dirName: '', status: '', lastAt: '' })
+export const autoBackup = reactive({ supported: typeof window !== 'undefined' && !!window.showDirectoryPicker, enabled: false, dirName: '', status: '', lastAt: '' })
 let backupDir = null
 let backupTimer = null
 
@@ -354,15 +354,20 @@ function scheduleAutoBackup() {
 }
 
 async function init() {
-  await loadLocal()
-  await initAutoBackup()
-  // 申请把浏览器存储固定住（照片、录音都在里面，避免磁盘紧张时被浏览器清掉）
-  navigator.storage?.persist?.().then(ok => {
-    if (!ok) console.warn('[castle-diary] 浏览器拒绝了持久化存储申请，请记得定期导出备份')
-  }).catch(() => {})
-  const { initAppLock } = await import('./utils/appLock.js')
-  initAppLock()
-  ready.value = true
+  try {
+    await loadLocal()
+    await initAutoBackup()
+    // 申请把浏览器存储固定住（照片、录音都在里面，避免磁盘紧张时被浏览器清掉）
+    navigator.storage?.persist?.().then(ok => {
+      if (!ok) console.warn('[castle-diary] 浏览器拒绝了持久化存储申请，请记得定期导出备份')
+    }).catch(() => {})
+    const { initAppLock } = await import('./utils/appLock.js')
+    initAppLock()
+    ready.value = true
+  } catch (e) {
+    // node/测试环境没有 localStorage 等浏览器对象时静默跳过；真浏览器里照常暴露错误
+    if (typeof window !== 'undefined') console.error('[castle-diary] 初始化失败', e)
+  }
 }
 init()
 
@@ -490,6 +495,7 @@ export async function addWord({ word, kind = '词语', sourceBook = null, date, 
   const w = {
     id: uid(), word, kind,
     date: date || todayStr(),
+    createdAt: nowLocal(),
     sourceBook: sourceBook || null,
     pinyin: pinyin || '',
     meaning: meaning || '',
@@ -1024,7 +1030,7 @@ export function removeGame(id) {
 export function addPlay(gameId, { date, note = '', first = false, photo = '' }) {
   const g = store.games.find(x => x.id === gameId)
   if (!g) return null
-  const p = { id: uid(), date: date || todayStr(), note: note.trim(), first: !!first }
+  const p = { id: uid(), date: date || todayStr(), createdAt: nowLocal(), note: note.trim(), first: !!first }
   if (photo) p.photoId = addPhoto({ dataUrl: photo, date: p.date, note: note.trim() || `玩${g.name}` }).id
   if (p.first) {
     p.milestoneId = addMilestone({ date: p.date, title: `${g.name}：${p.note || '第一次完成'}`, source: '游戏' }).id
@@ -1089,7 +1095,7 @@ export function linkPhotoMilestone(id, milestoneId) {
 
 // ---------- 出行 ----------
 export function addTrip({ date, place, title = '', note = '', withWho = '', photo = '' }) {
-  const t = { id: uid(), date: date || todayStr(), place, title: title || place, note, withWho }
+  const t = { id: uid(), date: date || todayStr(), createdAt: nowLocal(), place, title: title || place, note, withWho }
   if (photo) t.photoId = addPhoto({ dataUrl: photo, date: t.date, note: note || `在${place}` }).id
   store.trips.unshift(t)
   saveLocal()
