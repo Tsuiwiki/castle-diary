@@ -9,7 +9,7 @@ import { compressDataUrl } from './utils/image.js'
 import { dueDoses, monthLabel } from './utils/vaccineSchedule.js'
 import { guessFoodGroups, guessPlaceCat, PLACE_CATS } from './utils/foodGroups.js'
 
-export const APP_VERSION = '0.33.1'
+export const APP_VERSION = '0.40.0'
 const LS_KEY = 'castle-books-local-v1'
 
 export const WORD_KINDS = ['发音', '词语', '识字', '句子', '歌谣']
@@ -50,6 +50,7 @@ function buildSeed() {
     photos: [],
     trips: [],
     diaries: [],
+    dayStates: [],
     games: [],
     foods: [],
     places: [],
@@ -75,6 +76,7 @@ export const store = reactive({
   photos: [],
   trips: [],
   diaries: [],
+  dayStates: [],   // 日期级状态卡：[{ id, date, mood }]（v0.39；单条日记不再携带当天心情）
   games: [],
   foods: [],
   places: [],
@@ -114,15 +116,11 @@ export const dataCorrupt = ref(false)
 export const lastSavedAt = ref(0)
 
 // 恢复页用：把损坏原文下载成副本（可能含个人数据，文件名已注明）
-export function downloadCorruptRaw() {
+export async function downloadCorruptRaw() {
   const raw = localStorage.getItem(LS_KEY)
   if (!raw) return
-  const blob = new Blob([raw], { type: 'text/plain' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `城堡日记-损坏数据副本-${todayStr().replaceAll('-', '')}.txt`
-  a.click()
-  URL.revokeObjectURL(a.href)
+  const { saveFile } = await import('./utils/platform.js')
+  await saveFile(`城堡日记-损坏数据副本-${todayStr().replaceAll('-', '')}.txt`, new Blob([raw], { type: 'text/plain' }), 'text/plain')
 }
 let lastPersistFailed = false
 
@@ -161,6 +159,7 @@ export function persistNow() {
       photos: store.photos,
       trips: store.trips,
       diaries: store.diaries,
+      dayStates: store.dayStates,
       games: store.games,
       foods: store.foods,
       places: store.places,
@@ -200,7 +199,8 @@ function applyState(s) {
   store.milestones = s.milestones || []
   store.photos = s.photos || []
   store.trips = s.trips || []
-  store.diaries = s.diaries || []
+  store.diaries = (s.diaries || []).map(d => ({ mood: '', by: '', ...d })) // 老条目补 mood/by 空值，避免模板裸访问
+  store.dayStates = s.dayStates || []
   store.games = (s.games || []).map(g => ({ plays: [], tags: [], ...g }))
   store.foods = s.foods || []
   store.places = s.places || []
@@ -284,7 +284,7 @@ export function markExported() {
 // ---------- 自动备份到本地文件夹（v0.18，File System Access API，仅电脑端 Chrome/Edge） ----------
 // 句柄存在 IndexedDB（结构化克隆），localStorage 只存开关与时间。
 // 每天第一次有改动后静默写一个「城堡日记-自动备份.json」；权限被收回就在设置页提示重新授权。
-export const autoBackup = reactive({ supported: !!window.showDirectoryPicker, enabled: false, dirName: '', status: '', lastAt: '' })
+export const autoBackup = reactive({ supported: typeof window !== 'undefined' && !!window.showDirectoryPicker, enabled: false, dirName: '', status: '', lastAt: '' })
 let backupDir = null
 let backupTimer = null
 
@@ -354,19 +354,45 @@ function scheduleAutoBackup() {
 }
 
 async function init() {
-  await loadLocal()
-  await initAutoBackup()
-  // 申请把浏览器存储固定住（照片、录音都在里面，避免磁盘紧张时被浏览器清掉）
-  navigator.storage?.persist?.().then(ok => {
-    if (!ok) console.warn('[castle-diary] 浏览器拒绝了持久化存储申请，请记得定期导出备份')
-  }).catch(() => {})
-  const { initAppLock } = await import('./utils/appLock.js')
-  initAppLock()
-  ready.value = true
+  try {
+    await loadLocal()
+    await initAutoBackup()
+    // 申请把浏览器存储固定住（照片、录音都在里面，避免磁盘紧张时被浏览器清掉）
+    navigator.storage?.persist?.().then(ok => {
+      if (!ok) console.warn('[castle-diary] 浏览器拒绝了持久化存储申请，请记得定期导出备份')
+    }).catch(() => {})
+    const { initAppLock } = await import('./utils/appLock.js')
+    initAppLock()
+    ready.value = true
+  } catch (e) {
+    // node/测试环境没有 localStorage 等浏览器对象时静默跳过；真浏览器里照常暴露错误
+    if (typeof window !== 'undefined') console.error('[castle-diary] 初始化失败', e)
+  }
 }
 init()
 
 // ---------- 档案 ----------
+// ---------- 称呼（v0.35）：界面里所有指代孩子的「她」都从这里来 ----------
+// 老数据没有 pronoun 字段 = 'she'，保持原样
+export const PRONOUNS = [
+  { key: 'she', label: '她' },
+  { key: 'he', label: '他' },
+  { key: 'baby', label: '宝宝' },
+  { key: 'name', label: '用小名' },
+]
+export function ta() {
+  const p = store.settings.pronoun
+  if (p === 'he') return '他'
+  if (p === 'baby') return '宝宝'
+  if (p === 'name') return store.settings.childName || '宝宝'
+  return '她'
+}
+// 把文案里的「她」换成当前称呼（只用于界面文案，不处理用户自己写的日记正文）
+export function her(text) {
+  const w = ta()
+  return w === '她' ? String(text ?? '') : String(text ?? '').replace(/她/g, w)
+}
+
 export function updateSettings(patch) {
   const { childName, birthday, tts, ...rest } = patch
   if (childName !== undefined) store.settings.childName = childName
@@ -469,6 +495,7 @@ export async function addWord({ word, kind = '词语', sourceBook = null, date, 
   const w = {
     id: uid(), word, kind,
     date: date || todayStr(),
+    createdAt: nowLocal(),
     sourceBook: sourceBook || null,
     pinyin: pinyin || '',
     meaning: meaning || '',
@@ -1003,7 +1030,7 @@ export function removeGame(id) {
 export function addPlay(gameId, { date, note = '', first = false, photo = '' }) {
   const g = store.games.find(x => x.id === gameId)
   if (!g) return null
-  const p = { id: uid(), date: date || todayStr(), note: note.trim(), first: !!first }
+  const p = { id: uid(), date: date || todayStr(), createdAt: nowLocal(), note: note.trim(), first: !!first }
   if (photo) p.photoId = addPhoto({ dataUrl: photo, date: p.date, note: note.trim() || `玩${g.name}` }).id
   if (p.first) {
     p.milestoneId = addMilestone({ date: p.date, title: `${g.name}：${p.note || '第一次完成'}`, source: '游戏' }).id
@@ -1068,7 +1095,7 @@ export function linkPhotoMilestone(id, milestoneId) {
 
 // ---------- 出行 ----------
 export function addTrip({ date, place, title = '', note = '', withWho = '', photo = '' }) {
-  const t = { id: uid(), date: date || todayStr(), place, title: title || place, note, withWho }
+  const t = { id: uid(), date: date || todayStr(), createdAt: nowLocal(), place, title: title || place, note, withWho }
   if (photo) t.photoId = addPhoto({ dataUrl: photo, date: t.date, note: note || `在${place}` }).id
   store.trips.unshift(t)
   saveLocal()
@@ -1116,14 +1143,44 @@ export const MOODS = [
 ]
 
 export function getDiary(date) {
-  return store.diaries.find(d => d.date === date) || null
+  // 兼容旧调用：一天可能有多篇时返回最早的一篇（时间线第一张文本卡）
+  return getDiaries(date)[0] || null
 }
 
+// v0.39：一天可多篇。按创建时间升序，旧条目（无 createdAt）按 updatedAt 回退
+export function getDiaries(date) {
+  return store.diaries
+    .filter(d => d.date === date)
+    .sort((a, b) => (a.createdAt || a.updatedAt || '').localeCompare(b.createdAt || b.updatedAt || ''))
+}
+
+export function addDiary({ date, text = '', by = '' }) {
+  const d = { id: uid(), date, text, by, createdAt: nowLocal(), updatedAt: nowLocal() }
+  store.diaries.unshift(d)
+  saveLocal()
+  return d
+}
+
+export function updateDiary(id, fields) {
+  const d = store.diaries.find(x => x.id === id)
+  if (!d) return
+  Object.assign(d, fields, { updatedAt: nowLocal() })
+  saveLocal()
+}
+
+// 只删这一篇文本记录；贴纸记录（吃了/她说/玩了…）是当天的独立记录，不受影响
+export function removeDiary(id) {
+  const i = store.diaries.findIndex(x => x.id === id)
+  if (i >= 0) { store.diaries.splice(i, 1); saveLocal() }
+}
+
+// 旧入口保留（月龄卡等仍有调用）：写到当天最新一篇；当天没有就建一篇
 // 局部更新当天日记（没有就新建）；mood / text / by 任意组合
 export function saveDiary(date, fields) {
-  let d = getDiary(date)
+  const list = getDiaries(date)
+  let d = list[list.length - 1]
   if (!d) {
-    d = { id: uid(), date, mood: '', text: '', by: '' }
+    d = { id: uid(), date, mood: '', text: '', by: '', createdAt: nowLocal() }
     store.diaries.unshift(d)
   }
   for (const k of ['mood', 'text', 'by']) {
@@ -1132,6 +1189,23 @@ export function saveDiary(date, fields) {
   d.updatedAt = nowLocal()
   saveLocal()
   return d
+}
+
+// ---------- 日期级状态卡（v0.39）：当天心情从日记条目拆出来 ----------
+export function getDayState(date) {
+  const st = store.dayStates.find(x => x.date === date)
+  if (st?.mood) return st.mood
+  // 旧数据回退：该日日记条目上遗留的 mood
+  const d = getDiaries(date).find(x => x.mood)
+  return d?.mood || ''
+}
+
+export function setDayMood(date, mood) {
+  const i = store.dayStates.findIndex(x => x.date === date)
+  if (!mood) { if (i >= 0) { store.dayStates.splice(i, 1); saveLocal() } return }
+  if (i >= 0) store.dayStates[i].mood = mood
+  else store.dayStates.unshift({ id: uid(), date, mood })
+  saveLocal()
 }
 
 // 年龄文本：1 岁 8 个月零 7 天 / 8 个月整；onDate 早于生日返回空
@@ -1376,6 +1450,7 @@ export async function buildBackup() {
     photos: store.photos.map(({ imageUrl, ...p }) => p),
     trips: store.trips,
     diaries: store.diaries,
+    dayStates: store.dayStates,
     games: store.games.map(({ imageUrl, ...g }) => g),
     foods: store.foods,
     places: store.places,

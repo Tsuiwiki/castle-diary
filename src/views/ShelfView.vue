@@ -93,7 +93,7 @@
   >
     <div class="card-title">
       <span class="ct-left"><Icon name="plus" :size="16" />新书上架</span>
-      <span class="more">拍封面 / 拖图可自动识别书名</span>
+      <span class="more">{{ isApp() ? '可以拍一张封面当书的封面' : '拍封面 / 拖图可自动识别书名' }}</span>
     </div>
     <div class="inline-add">
       <input ref="titleInput" v-model.trim="newTitle" placeholder="绘本名称" style="flex:1.4" @keyup.enter="add" />
@@ -113,7 +113,7 @@
     </div>
     <div class="cover-row">
       <button class="ocr-btn" :disabled="ocrLoading" @click="fileInput.click()">
-        <Icon name="scan" :size="16" />{{ ocrLoading ? '识别中…' : '拍封面识别书名' }}
+        <Icon :name="isApp() ? 'camera' : 'scan'" :size="16" />{{ ocrLoading ? '识别中…' : (isApp() ? '拍封面' : '拍封面识别书名') }}
       </button>
       <div v-if="pendingCover" class="cover-preview">
         <img :src="pendingCover" alt="封面预览" />
@@ -165,7 +165,7 @@
             <template v-if="wordFor !== b.id">
               <div class="bo-stats">已读 {{ b.reads.length }} 次 · 词 {{ wordCount(b.title) }}</div>
               <button class="bo-btn" @click="quickRead(b)">
-                <Icon name="book-open" :size="14" />{{ justRead === b.id ? '已打卡 +15分钟' : '+ 记一次阅读' }}
+                <Icon name="book-open" :size="14" />{{ justRead === b.id ? '已记下 +15分钟' : '+ 记一次阅读' }}
               </button>
               <button class="bo-btn" @click="wordFor = b.id"><Icon name="message-circle" :size="14" />录入新词</button>
               <button class="bo-btn bo-primary" @click="$emit('open', b.id)"><Icon name="chevron-right" :size="14" />查看详情</button>
@@ -208,7 +208,7 @@
     <div class="card-title">
       <span class="ct-left"><Icon name="clock" :size="16" />最近阅读</span>
     </div>
-    <div v-for="r in recentReads" :key="r.key" class="tl-item">
+    <div v-for="r in recentReads" :key="r.key" class="tl-item tl-click" title="回到那天的日记" @click="openDay(r.time.slice(0, 10))">
       <span class="tl-time">{{ r.time.slice(5, 10) }}</span>
       <span class="tl-icon"><Icon name="book-open" :size="18" /></span>
       <div class="tl-body">
@@ -221,6 +221,7 @@
 </template>
 
 <script setup>
+import { isApp } from '../utils/platform.js'
 import { ref, computed, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import { store, monthReadStats, readingTrend, addBook, setBookCover, addRead, addWord, nowLocal, WORD_KINDS, BOOK_CATEGORIES, addBookSignal, updateSettings } from '../store.js'
@@ -228,7 +229,14 @@ import { compressImage } from '../utils/image.js'
 import { ocrRecognize } from '../utils/ocr.js'
 import { genPinyin } from '../utils/pinyin.js'
 
-defineEmits(['open'])
+const emit = defineEmits(['open', 'go'])
+import { diaryDate } from '../store.js'
+
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
+
 
 const newTitle = ref('')
 const newAuthor = ref('')
@@ -455,7 +463,9 @@ async function processCover(file) {
 async function onCover(e) {
   const file = e.target.files?.[0]
   e.target.value = ''
-  if (!file || !confirmOcrFirstUse()) return
+  if (!file) return
+  if (isApp()) { pendingCover.value = await compressImage(file); return } // App 版不联网，只当封面用
+  if (!confirmOcrFirstUse()) return
   await processCover(file)
 }
 
@@ -478,6 +488,9 @@ function onShelfDrop(e) {
 </script>
 
 <style scoped>
+.tl-click { cursor: pointer; }
+.tl-click:hover { background: rgba(240, 147, 75, .06); }
+
 .add-card .inline-add input, .add-card .inline-add select {
   border-color: rgba(240, 147, 75, .4); background: #fffdf9;
   box-shadow: 0 1px 4px rgba(240, 147, 75, .08);

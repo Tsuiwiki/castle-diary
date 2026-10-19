@@ -52,7 +52,7 @@
       <div class="empty-sub">照片存在本机浏览器里，不会上传</div>
     </div>
     <div v-for="g in dayGroups" :key="g.date" class="day-group">
-      <div class="meal-date">{{ g.date }}<span class="day-count">{{ g.photos.length }} 张</span></div>
+      <div class="meal-date meal-click" title="回到那天的日记" @click="openDay(g.date)">{{ g.date }}<span class="day-count">{{ g.photos.length }} 张</span><span class="meal-go">看那天 →</span></div>
       <div class="photo-grid">
         <img v-for="p in g.photos" :key="p.id" :src="p.imageUrl" class="photo-cell" @click="open(p)" />
       </div>
@@ -83,8 +83,10 @@
 </template>
 
 <script setup>
+const emit = defineEmits(['go'])
 import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
+import { diaryDate } from '../store.js'
 import { store, addPhoto, removePhoto, linkPhotoMilestone, todayStr } from '../store.js'
 import { compressImage } from '../utils/image.js'
 
@@ -156,4 +158,15 @@ function removeCurrent() {
   if (r === 'blocked') { alert('这张照片还被出行/游戏记录用着，先去那边删掉引用再删'); return }
   current.value = null
 }
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
 </script>
+
+<style scoped>
+.meal-click { cursor: pointer; }
+.meal-click:hover { color: var(--brand-deep); }
+.meal-go { font-size: 12px; color: var(--brand-deep); margin-left: 8px; opacity: 0; transition: opacity .15s; }
+.meal-click:hover .meal-go { opacity: 1; }
+</style>

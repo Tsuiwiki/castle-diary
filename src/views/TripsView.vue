@@ -1,7 +1,7 @@
 <template>
   <div class="view-head">
     <h2>足迹册</h2>
-    <div class="sub">她去过的每个地方都是一枚邮票，去得越多邮戳越多 · 日常在日记里用「去了」贴纸记</div>
+    <div class="sub">{{ ta() }}去过的每个地方都是一枚邮票，去得越多邮戳越多 · 日常在日记里用「去了」贴纸记</div>
   </div>
 
   <div class="stat-row">
@@ -51,7 +51,7 @@
         <span class="pn-hint">分类：</span>
         <span v-for="c in PLACE_CATS" :key="c" class="chip" :class="{ sel: openStamp.cat === c }" @click="setPlaceCat(openStamp.name, c)">{{ c }}</span>
       </div>
-      <div v-for="t in openStamp.trips" :key="t.id" class="trip-row">
+      <div v-for="t in openStamp.trips" :key="t.id" class="trip-row trip-click" title="回到那天的日记" @click="openDay(t.date)">
         <span class="wk-date">{{ t.date }}</span>
         <div class="trip-body">
           <div class="trip-title">
@@ -115,7 +115,7 @@
     <div class="col">
       <div class="card">
         <div class="card-title"><span class="ct-left"><Icon name="camera" :size="16" />月份胶片</span><span class="more">{{ store.trips.length }} 次出行</span></div>
-        <div v-if="!months.length" class="empty">还没有出行记录，周末带她出去走走吧</div>
+        <div v-if="!months.length" class="empty">还没有出行记录，周末带{{ ta() }}出去走走吧</div>
         <div v-for="m in months" :key="m.month" class="film-month">
           <div class="fm-title">{{ m.label }}<span class="day-count">{{ m.trips.length }} 次 · {{ m.placeCount }} 个地方</span></div>
           <div class="film">
@@ -135,8 +135,11 @@
 </template>
 
 <script setup>
+const emit = defineEmits(['go'])
+import { ta, her } from '../store.js'
 import { ref, reactive, computed } from 'vue'
 import Icon from '../components/Icon.vue'
+import { diaryDate } from '../store.js'
 import { store, addTrip, removeTrip, topPlaces, todayStr, PLACE_CATS, placeCatOf, setPlaceCat } from '../store.js'
 import { termOf } from '../utils/solarTerms.js'
 import { compressImage } from '../utils/image.js'
@@ -236,9 +239,16 @@ function save() {
 function remove(t) {
   if (confirm(`删掉 ${t.date} 去「${t.place}」这条记录？（照片仍留在相册）`)) removeTrip(t.id)
 }
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
 </script>
 
 <style scoped>
+.trip-click { cursor: pointer; }
+.trip-click:hover { background: rgba(240, 147, 75, .06); }
+
 .top-name { font-size: 16px !important; line-height: 29px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 分类色：公园 / 商场 / 亲戚家 / 早教 / 医院 / 旅行 / 其他 */

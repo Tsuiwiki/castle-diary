@@ -25,7 +25,7 @@
   <div class="card">
     <div class="week-nav">
       <button class="mini-btn ghost" @click="year--"><Icon name="chevron-left" :size="14" />{{ year - 1 }}</button>
-      <div class="week-label"><b>{{ year }} 年</b><button v-if="year !== nowYear" class="mini-btn ghost" @click="year = nowYear">回到今年</button></div>
+      <div class="week-label"><b>{{ year }} 年</b><button v-if="year !== nowYear" class="mini-btn ghost" @click="year = nowYear">回到今年</button><button class="mini-btn" @click="bookOpen = true"><Icon name="book" :size="13" />做成一本书</button></div>
       <button class="mini-btn ghost" :disabled="year >= nowYear" @click="year++">{{ year + 1 }}<Icon name="chevron-right" :size="14" /></button>
     </div>
   </div>
@@ -74,6 +74,9 @@
     </div>
   </div>
 
+  <!-- 年度成长书（打印 / 另存为 PDF） -->
+  <GrowthBook v-if="bookOpen" :year="year" @close="bookOpen = false" />
+
   <!-- 照片大图 -->
   <div v-if="lightbox" class="lb-mask" @click="lightbox = null">
     <div class="lb-box" @click.stop>
@@ -95,6 +98,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
+import GrowthBook from '../components/GrowthBook.vue'
 import { store, rangeReport, babyDayOfLife, diaryDate } from '../store.js'
 import { monthIndex } from '../utils/diaryText.js'
 
@@ -130,6 +134,7 @@ const yearPhotos = computed(() => {
   return [...byMonth.values()].sort((a, b) => a.date.localeCompare(b.date))
 })
 const lightbox = ref(null)
+const bookOpen = ref(false)
 
 // 月度大事记：每月聚合里程碑 + 首尝 + 阅读分钟
 const monthly = computed(() => {

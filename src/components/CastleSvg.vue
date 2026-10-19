@@ -2,8 +2,8 @@
   <!-- 会长大的城堡：月龄生日加一层，每 10 个会说的词添一块砖，每个里程碑插一面旗，
        每本读完的书点一盏灯，每个去过的地方院子里多一株小树。只长不倒。
        随季节换装：春发芽、夏出太阳、秋金黄落叶、冬飘雪盖顶。 -->
-  <svg :viewBox="`0 0 320 ${VB_H}`" :width="width" :height="Math.round(width * VB_H / 320)" class="castle" role="img">
-    <title>小宝的城堡</title>
+  <svg :viewBox="`0 ${VB_TOP} 320 ${VB_H}`" :width="width" :height="Math.round(width * VB_H / 320)" class="castle" role="img">
+    <title>{{ store.settings.childName || '宝宝' }}的城堡</title>
     <desc>{{ summary }}</desc>
     <!-- 天空（随季节换色） -->
     <rect x="0" :y="skyTop" width="320" :height="GROUND - skyTop + 4" :fill="C.sky" />
@@ -130,8 +130,9 @@ const bushes = computed(() => Math.min(new Set(store.trips.map(t => t.place)).si
 const wallTop = computed(() => GROUND - floors.value * FLOOR_H)
 const towerH = computed(() => floors.value * FLOOR_H + 30)
 const towerTop = computed(() => GROUND - towerH.value)
-// 画布高度跟着城堡走：加层、插旗都不会被裁掉（顶部留 20px 给旗杆）
-const VB_H = computed(() => (GROUND + 40) + Math.max(0, 20 - wallTop.value))
+// 画布跟着城堡往上长：塔顶、屋顶、旗杆可能长到负坐标，viewBox 起点要跟着上移，否则会被裁掉
+const VB_TOP = computed(() => Math.min(0, skyTop.value))
+const VB_H = computed(() => (GROUND + 40) - VB_TOP.value)
 const skyTop = computed(() => Math.min(wallTop.value, towerTop.value) - 20)
 const flagX = i => (i % 2 ? TX1 : TX2) + (i > 2 ? 4 : 0)
 const bushX = i => 24 + i * 46 + (i % 2 ? 10 : 0)

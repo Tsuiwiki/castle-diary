@@ -14,8 +14,8 @@
             <span v-if="age">{{ childName() }} · {{ age }}</span>
             <a v-else-if="!store.settings.birthday" class="bday-hint" @click="$emit('go', 'settings')">先填小名和生日，月龄才会长出来 →</a>
             <span v-if="isMonthBirthday" class="p-bday">月龄生日</span>
-            <span v-if="dayTerm" class="p-term" :class="'term-' + dayTerm.season" :title="dayTerm.hint">今日 · {{ dayTerm.name }}</span>
-            <span v-if="entry.lines.length" class="p-mini-castle" title="城堡的家底" @click="castleLedger = true"><CastleSvg :width="64" /></span>
+            <span v-if="dayTerm" class="p-term" :class="'term-' + dayTerm.season" :title="her(dayTerm.hint)">今日 · {{ dayTerm.name }}</span>
+            <span v-if="items.length" class="p-mini-castle" title="城堡的家底" @click="castleLedger = true"><CastleSvg :width="64" /></span>
           </div>
         </div>
         <button class="p-arrow" title="后一天（→）" :disabled="isToday" @click="shiftDay(1)"><Icon name="chevron-right" :size="18" /></button>
@@ -31,11 +31,11 @@
 
       <!-- 心情 -->
       <div class="p-mood">
-        <span class="p-mood-lbl">她今天</span>
+        <span class="p-mood-lbl">{{ ta() }}今天</span>
         <span
           v-for="m in MOODS" :key="m.key"
-          class="mood-chip" :class="{ on: diary?.mood === m.key }"
-          :style="diary?.mood === m.key ? { background: m.color, borderColor: m.color } : { borderColor: m.color, color: m.color }"
+          class="mood-chip" :class="{ on: dayMood === m.key }"
+          :style="dayMood === m.key ? { background: m.color, borderColor: m.color } : { borderColor: m.color, color: m.color }"
           @click="setMood(m.key)"
         >{{ m.key }}</span>
       </div>
@@ -47,7 +47,7 @@
           class="sticker" :class="['st-' + s.key, { on: active === s.key }]"
           @click="toggleSticker(s.key)"
         >
-          <Icon :name="s.icon" :size="15" />{{ s.label }}<kbd>{{ i + 1 }}</kbd>
+          <Icon :name="s.icon" :size="15" />{{ her(s.label) }}<kbd>{{ i + 1 }}</kbd>
         </button>
       </div>
 
@@ -112,7 +112,7 @@
 
         <!-- 她说 -->
         <template v-else-if="active === 'say'">
-          <div class="pn-title">她今天说了什么？</div>
+          <div class="pn-title">{{ ta() }}今天说了什么？</div>
           <div class="pn-input-row">
             <input
               class="pn-input pn-focus" v-model.trim="say.input"
@@ -124,7 +124,7 @@
           <!-- 录音：点一下开始，再点一下停止；最长 15 秒 -->
           <div class="rec-row">
             <button v-if="rec.state === 'idle'" class="rec-btn" @click="startRec">
-              <span class="rec-dot"></span>录下她的声音
+              <span class="rec-dot"></span>录下{{ ta() }}的声音
             </button>
             <template v-else-if="rec.state === 'recording'">
               <button class="rec-btn on" @click="stopRec"><span class="rec-dot"></span>停止</button>
@@ -167,7 +167,7 @@
             />
             <input
               class="pn-input" v-model.trim="play.note"
-              placeholder="她的表现（可选）：自己把三角形放进去了" @keydown.enter.prevent="savePlay"
+              :placeholder="her('她的表现（可选）：自己把三角形放进去了')" @keydown.enter.prevent="savePlay"
             />
             <button class="mini-btn" :disabled="!play.name" @click="savePlay">记下</button>
           </div>
@@ -208,7 +208,7 @@
         <template v-else-if="active === 'sick'">
           <!-- 还没在生病：选症状开一张生病记 -->
           <template v-if="!sickNow">
-            <div class="pn-title">她哪里不舒服？<span class="pn-sub">会开一张「生病记」，之后每天点这张贴纸接着记</span></div>
+            <div class="pn-title">{{ ta() }}哪里不舒服？<span class="pn-sub">会开一张「生病记」，之后每天点这张贴纸接着记</span></div>
             <div class="chip-row">
               <span v-for="sy in SYMPTOMS" :key="sy" class="chip" :class="{ sel: sick.symptoms.includes(sy) }" @click="toggleList(sick.symptoms, sy)">{{ sy }}</span>
             </div>
@@ -284,50 +284,75 @@
 
       <!-- 日记正文 -->
       <div class="p-body">
-        <div v-if="dayTerm" class="p-term-hint">今天是{{ dayTerm.name }}：{{ dayTerm.hint }}</div>
-        <div v-if="!entry.lines.length && !entry.photos.length" class="p-empty">
+        <div v-if="dayTerm" class="p-term-hint">今天是{{ dayTerm.name }}：{{ her(dayTerm.hint) }}</div>
+        <div v-if="!items.length && !dayPhotos.length" class="p-empty">
           <div class="p-castle" title="城堡的家底" @click="castleLedger = true"><CastleSvg :width="280" /><span>{{ castleSummary }}</span></div>
-          <div class="p-q" @click="toggleSticker(question.s)">{{ question.q }}</div>
-          <div class="p-q-sub">点上面的贴纸，或按数字键 1–7 开始写今天的日记</div>
+          <div class="p-q" @click="toggleSticker(question.s)">{{ her(question.q) }}</div>
+          <div class="p-q-sub">点上面的贴纸随手记一笔，或写一页；不用天天记，想记的时候记就好</div>
         </div>
-        <p v-for="line in entry.lines" :key="line.key" class="p-line">
-          <template v-for="(tk, i) in line.tokens" :key="i">
-            <span v-if="tk.t === 'text'">{{ tk.v }}</span>
-            <span v-else class="tk" :class="['tk-' + tk.kind, { 'tk-jump': tk.jump }]" @click="tk.jump && $emit('go', tk.jump)">
-              {{ tk.v }}<button v-if="tk.audio" class="tk-play" :class="{ playing: playingUrl === tk.audio }" :title="playingUrl === tk.audio ? '停止' : '听她说'" @click.stop="playAudio(tk.audio)"><Icon name="volume" :size="13" /></button><small v-if="tk.suffix" class="tk-suffix">（{{ tk.suffix }}）</small>
-              <span v-if="tk.badge" class="stamp" :class="'stamp-' + tk.badge">{{ tk.badge }}</span>
-              <button v-if="tk.del" class="tk-del" title="删掉这条" @click="removeToken(tk)">×</button>
-              <button v-if="kindSwitch(tk)" class="tk-kind" @click="switchKind(tk)">{{ kindSwitch(tk).label }}</button>
-            </span>
-          </template>
-        </p>
+
+        <!-- 当天记录：贴纸条目 + 文本日记按时间排 -->
+        <div v-if="items.length" class="p-timeline">
+          <div v-for="it in items" :key="it.key" class="tl-row" :class="'tl-' + it.kind">
+            <span v-if="it.time" class="tl-time">{{ it.time }}</span>
+            <div v-if="it.kind === 'note'" class="tl-note">
+              <p class="tl-note-text">{{ it.entry.text }}</p>
+              <div class="tl-note-meta">
+                <span v-if="it.entry.by">{{ it.entry.by }} 记</span>
+                <span v-else></span>
+                <span class="tl-note-ops">
+                  <a @click="openEditor(it.entry)">改一改</a>
+                  <a class="tl-del" @click="removeEntry(it.entry.id)">删掉</a>
+                </span>
+              </div>
+            </div>
+            <p v-else class="p-line">
+              <template v-for="(tk, i) in it.tokens" :key="i">
+                <span v-if="tk.t === 'text'">{{ tk.v }}</span>
+                <span v-else class="tk" :class="['tk-' + tk.kind, { 'tk-jump': tk.jump }]" @click="tk.jump && $emit('go', tk.jump)">
+                  {{ tk.v }}<button v-if="tk.audio" class="tk-play" :class="{ playing: playingUrl === tk.audio }" :title="playingUrl === tk.audio ? '停止' : her('听她说')" @click.stop="playAudio(tk.audio)"><Icon name="volume" :size="13" /></button><small v-if="tk.suffix" class="tk-suffix">（{{ tk.suffix }}）</small>
+                  <span v-if="tk.badge" class="stamp" :class="'stamp-' + tk.badge">{{ tk.badge }}</span>
+                  <button v-if="tk.del" class="tk-del" title="删掉这条" @click="removeToken(tk)">×</button>
+                  <button v-if="kindSwitch(tk)" class="tk-kind" @click="switchKind(tk)">{{ kindSwitch(tk).label }}</button>
+                </span>
+              </template>
+            </p>
+          </div>
+        </div>
 
         <!-- 照片拍立得 -->
-        <div v-if="entry.photos.length" class="polaroids">
-          <figure v-for="(p, i) in entry.photos" :key="p.id" class="polaroid" :style="{ transform: `rotate(${i % 2 ? 2 : -2}deg)` }" @click="lightbox = p">
+        <div v-if="dayPhotos.length" class="polaroids">
+          <figure v-for="(p, i) in dayPhotos" :key="p.id" class="polaroid" :style="{ transform: `rotate(${i % 2 ? 2 : -2}deg)` }" @click="lightbox = p">
             <img v-if="p.imageUrl" :src="p.imageUrl" />
             <figcaption>{{ p.note || ' ' }}</figcaption>
           </figure>
         </div>
       </div>
 
-      <!-- 爸爸妈妈想说的 + 落款 -->
+      <!-- 写一页：草稿自动暂存，「保存这一页」才正式入库 -->
       <footer class="p-foot">
-        <textarea
-          v-model="textDraft" class="p-text" rows="2"
-          placeholder="爸爸妈妈想说的（可选）：今天第一次主动牵手过马路……"
-          @input="queueText"
-          @blur="flushText"
-        ></textarea>
-        <div class="p-sign">
-          <span class="pn-hint">今天由</span>
-          <span
-            v-for="m in store.members" :key="m.id"
-            class="chip" :class="{ sel: diary?.by === m.name }"
-            @click="setBy(m.name)"
-          >{{ m.name }}</span>
-          <span class="pn-hint">记</span>
-          <span class="save-state" :class="{ dim: !saveDirty }">{{ saveStateText }}</span>
+        <div v-if="!editor" class="pf-idle">
+          <button class="btn-primary pf-write" @click="openEditor()"><Icon name="book-open" :size="15" />写一页</button>
+          <a v-if="draftHint" class="pf-draft" @click="openEditor()">有一页没写完，接着写 →</a>
+        </div>
+        <div v-else class="pf-edit">
+          <textarea
+            ref="editorTa" v-model="editor.text" rows="3"
+            placeholder="想记什么都行：今天第一句完整的话、一场大哭、一个拥抱……不用写满"
+          ></textarea>
+          <div class="p-sign">
+            <span class="pn-hint">这一页由</span>
+            <span
+              v-for="m in store.members" :key="m.id"
+              class="chip" :class="{ sel: editor.by === m.name }"
+              @click="editor.by = editor.by === m.name ? '' : m.name"
+            >{{ m.name }}</span>
+            <span class="pn-hint">记</span>
+            <span class="pf-actions">
+              <button class="mini-btn ghost" @click="closeEditor()">先收着</button>
+              <button class="btn-primary" @click="saveEditor()">保存这一页</button>
+            </span>
+          </div>
         </div>
       </footer>
     </section>
@@ -408,7 +433,7 @@
         <div class="mc-tip">{{ monthCard.periodLabel }}</div>
         <div class="mc-actions">
           <button class="btn-primary" @click="downloadCard"><Icon name="download" :size="15" />保存图片</button>
-          <button class="mini-btn ghost" @click="copyCard">{{ monthCard.copied ? '已复制 ✓' : '复制图片' }}</button>
+          <button class="mini-btn ghost" @click="copyCard">{{ monthCard.copied ? '已复制 ✓' : (isApp() ? '分享图片' : '复制图片') }}</button>
         </div>
       </template>
       <div v-else class="empty">先在「设置 → 孩子档案」填好生日，每个月龄生日就能出一张卡</div>
@@ -438,22 +463,25 @@
 </template>
 
 <script setup>
+import { isApp, saveFile, copyOrShareImage } from '../utils/platform.js'
+import { ta, her } from '../store.js'
 import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import Icon from '../components/Icon.vue'
 import RainbowPlate from '../components/RainbowPlate.vue'
 import {
   store, diaryDate, todayStr, nowLocal,
-  MEALS, MEAL_TAGS, MOODS, getDiary, saveDiary, babyAgeText,
+  MEALS, MEAL_TAGS, MOODS, babyAgeText,
+  getDayState, setDayMood, addDiary, updateDiary, removeDiary,
   addMeal, removeMeal, frequentFoods, addRead, removeRead,
   addWord, removeWord, setWordAudio, updateWord, addTrip, removeTrip, topPlaces,
   addPhoto, removePhoto, allReminders,
   addGame, addPlay, removePlay, lastPlayDate,
-  allergyOf, dayFoodGroups, babyMonths, backupDaysAgo, persistNow, lastSavedAt, storageError,
+  allergyOf, dayFoodGroups, babyMonths, backupDaysAgo, persistNow,
   SYMPTOMS, illnessOn, illnessDays, startIllness, addSymptoms, removeSymptom, addTemp, removeTemp,
   setIllnessNote, addVisit, removeVisit, illnessMeds, endIllness, reopenIllness, useMedicine, medStatus,
 } from '../store.js'
 import { FOOD_GROUPS } from '../utils/foodGroups.js'
-import { dayLines, linesToText, monthIndex, childName } from '../utils/diaryText.js'
+import { dayLines, dayItems, linesToText, monthIndex, childName } from '../utils/diaryText.js'
 import { compressImage } from '../utils/image.js'
 import { canRecord, startRecording, playAudio, stopAudio, playingUrl, MAX_RECORD_MS } from '../utils/recorder.js'
 import { GAME_IDEAS } from '../utils/gameIdeas.js'
@@ -504,7 +532,6 @@ const age = computed(() => babyAgeText(date.value))
 const isMonthBirthday = computed(() => age.value.endsWith('整'))
 
 function setDate(d) {
-  flushText()
   diaryDate.value = d > todayStr() ? todayStr() : d
 }
 function shiftDay(n) {
@@ -515,55 +542,91 @@ function shiftDay(n) {
 function goToday() { setDate(todayStr()) }
 
 // ---------- 当天内容 ----------
-const diary = computed(() => getDiary(date.value))
-const entry = computed(() => dayLines(date.value))
+const items = computed(() => dayItems(date.value))          // 时间线：贴纸条目 + 文本日记
+const dayPhotos = computed(() => store.photos.filter(p => p.date === date.value))
+const dayMood = computed(() => getDayState(date.value))     // 日期级状态卡（旧数据回退读日记条目 mood）
 const dayTerm = computed(() => termOf(date.value))
 const question = computed(() => {
   // 节气当天，今日一问换成应景灵感
-  if (dayTerm.value) return { q: `今日${dayTerm.value.name}：${dayTerm.value.hint}`, s: dayTerm.value.sticker }
+  if (dayTerm.value) return { q: `今日${dayTerm.value.name}：${dayTerm.value.hint}`, s: dayTerm.value.sticker } // 显示时 her() 统一换称呼
   const n = Number(date.value.replace(/-/g, '')) % QUESTIONS.length
   return QUESTIONS[n]
 })
 
 function setMood(key) {
-  saveDiary(date.value, { mood: diary.value?.mood === key ? '' : key })
-}
-function setBy(name) {
-  saveDiary(date.value, { by: diary.value?.by === name ? '' : name })
+  setDayMood(date.value, dayMood.value === key ? '' : key)
 }
 
-// 想说的话：输入防抖保存，切换日期前先落盘
-const textDraft = ref('')
-let textTimer = null
-watch(date, () => { textDraft.value = getDiary(date.value)?.text || '' }, { immediate: true })
-function queueText() {
-  saveDirty.value = true
-  clearTimeout(textTimer)
-  const d = date.value
-  textTimer = setTimeout(() => saveText(d), 600)
-}
-// 自动保存状态：输入时标脏，真实落盘（lastSavedAt 更新）后才显示已保存
-const saveDirty = ref(false)
-const saveStateText = computed(() => {
-  if (saveDirty.value) return '正在保存到本机…'
-  if (storageError.value) return '保存失败，请检查存储空间并导出备份'
-  if (!lastSavedAt.value) return ''
-  const d = new Date(lastSavedAt.value)
-  return `已保存在本机 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-})
-watch(lastSavedAt, () => { saveDirty.value = false })
+// ---------- 写一页：草稿暂存 + 显式保存 ----------
+// editor = null 关闭；{ id: '' } 新一页；{ id: 'xxx' } 改已有的一页
+const editor = ref(null)
+const editorTa = ref(null)
+const draftHint = ref(false)
+const DRAFT_KEY = 'castle-diary-draft'
 
-function flushText() {
-  if (!textTimer) return
-  clearTimeout(textTimer)
-  textTimer = null
-  saveText(date.value)
+function readDraft() {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null')
+    return d && d.date === date.value ? d : null
+  } catch { return null }
 }
-function saveText(d) {
-  textTimer = null
-  const v = textDraft.value.trim()
-  if ((getDiary(d)?.text || '') !== v) saveDiary(d, { text: v })
+function refreshDraft() {
+  const d = readDraft()
+  draftHint.value = !!(d && ((d.text || '').trim() || d.by))
 }
+function stashDraft() {
+  const e = editor.value
+  if (e && ((e.text || '').trim() || e.by)) {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ date: date.value, id: e.id || '', text: e.text, by: e.by || '' }))
+  }
+}
+function clearDraft() {
+  sessionStorage.removeItem(DRAFT_KEY)
+}
+
+function openEditor(entryItem = null) {
+  if (editor.value) stashDraft()
+  if (entryItem) {
+    editor.value = { id: entryItem.id, text: entryItem.text, by: entryItem.by || '' }
+  } else {
+    const d = readDraft()
+    editor.value = d
+      ? { id: d.id || '', text: d.text || '', by: d.by || '' }
+      : { id: '', text: '', by: store.members[0]?.name || '' }
+  }
+  nextTick(() => editorTa.value?.focus())
+}
+function closeEditor() {
+  if (editor.value && ((editor.value.text || '').trim() || editor.value.by)) {
+    stashDraft()
+    showToast('这一页先收着，想写的时候接着写')
+  }
+  editor.value = null
+  refreshDraft()
+}
+function saveEditor() {
+  const e = editor.value
+  const text = (e.text || '').trim()
+  if (!text) { showToast('还什么都没写——想好了再保存，或点「先收着」'); return }
+  if (e.id) updateDiary(e.id, { text, by: e.by })
+  else addDiary({ date: date.value, text, by: e.by })
+  clearDraft()
+  editor.value = null
+  refreshDraft()
+  showToast('这一页写好了')
+}
+function removeEntry(id) {
+  if (!confirm('删掉这一页吗？当天用贴纸记的内容不受影响。')) return
+  const d = readDraft()
+  if (d && d.id === id) clearDraft()
+  removeDiary(id)
+  if (editor.value?.id === id) { editor.value = null; refreshDraft() }
+  showToast('已删掉这一页')
+}
+watch(date, () => {
+  if (editor.value) { stashDraft(); editor.value = null }
+  refreshDraft()
+}, { immediate: true })
 
 // ---------- 贴纸面板 ----------
 const active = ref('')
@@ -588,7 +651,7 @@ if (sessionStorage.getItem('castle-diary-lost-rec')) {
 }
 
 // PWA 离线提示：第一次打开时轻声告诉一声（已安装为桌面应用则不再提示）
-if (!store.settings.pwaHintShown && !window.matchMedia('(display-mode: standalone)').matches) {
+if (store.settings.onboarded && !store.settings.pwaHintShown && !window.matchMedia('(display-mode: standalone)').matches) {
   store.settings.pwaHintShown = true
   persistNow()
   setTimeout(() => showToast('城堡日记支持离线使用，可添加到桌面，随时离线记录'), 1500)
@@ -670,7 +733,7 @@ const sayKind = computed(() => say.kind || (say.input.length >= 4 || /\s/.test(s
 async function saveSay() {
   if (rec.state === 'recording') await stopRec()
   if (!say.input) {
-    if (rec.result) showToast('先写下她说的是什么，再点记下')
+    if (rec.result) showToast(her('先写下她说的是什么，再点记下'))
     return
   }
   const kind = sayKind.value
@@ -685,7 +748,7 @@ async function saveSay() {
         showToast(`给“${dup.word}”${hadAudio ? '换上' : '补上'}了录音`)
         resetSay()
       } else if (!audio) {
-        showToast(`“${say.input}”在 ${dup.date} 已经记过啦，可以录一段她的声音补上`)
+        showToast(her(`“${say.input}”在 ${dup.date} 已经记过啦，可以录一段她的声音补上`))
       }
       return
     }
@@ -693,8 +756,8 @@ async function saveSay() {
   await addWord({ word: say.input, kind, date: date.value, audio, funny: kind === '句子' && say.funny })
   if (kind === '词语') {
     const n = store.words.filter(w => ['词语', '发音'].includes(w.kind)).length
-    if (n % 10 === 0) stamp('新词', `她会说的第 ${n} 个词！`)
-    showToast(`这是她会说的第 ${n} 个词${audio ? '，声音也存好了' : ''}`)
+    if (n % 10 === 0) stamp('新词', her(`她会说的第 ${n} 个词！`))
+    showToast(her(`这是她会说的第 ${n} 个词${audio ? '，声音也存好了' : ''}`))
   } else {
     showToast(audio ? '记下了，连声音一起' : (say.funny ? '记下了这句金句 ✨' : '记下了'))
   }
@@ -833,7 +896,7 @@ function startSick() {
   const ill = startIllness({ date: date.value, symptoms: list })
   if (!ill) { showToast('上一场病还没点「好了」，先在那张卡里结束它'); return }
   if (sick.temp) addTemp(ill.id, sick.temp, sickTime())
-  stamp('生病', '开始不舒服，抱抱她')
+  stamp('生病', her('开始不舒服，抱抱她'))
   showToast('开了一张生病记，好了记得点「好了」')
   resetSickForm()
 }
@@ -931,7 +994,7 @@ function switchKind(tk) {
     return
   }
   updateWord(tk.word.id, { kind: s.to })
-  showToast(s.to === '词语' ? `“${tk.v.replace(/[“”]/g, '')}”改成了她会说的词` : `“${tk.v.replace(/[“”]/g, '')}”改成了认字`)
+  showToast(s.to === '词语' ? her(`“${tk.v.replace(/[“”]/g, '')}”改成了她会说的词`) : `“${tk.v.replace(/[“”]/g, '')}”改成了认字`)
 }
 
 // 日记里撤销一条记录（同时删掉对应模块里的数据）
@@ -992,18 +1055,17 @@ async function openMonthCard() {
   }
 }
 function closeMonthCard() { monthCard.show = false }
-function downloadCard() {
-  const a = document.createElement('a')
-  a.href = monthCard.url
+function cardFileName() {
   const period = latestCardPeriod()
-  a.download = `月龄卡-${period ? period.months : ''}个月-${todayStr().replaceAll('-', '')}.png`
-  a.click()
+  return `月龄卡-${period ? period.months : ''}个月-${todayStr().replaceAll('-', '')}.png`
+}
+async function downloadCard() {
+  try { await saveFile(cardFileName(), monthCard.url, 'image/png') } catch { showToast('图片没保存成功，再试一次') }
 }
 async function copyCard() {
   try {
     const blob = await (await fetch(monthCard.url)).blob()
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-    monthCard.copied = true
+    if ((await copyOrShareImage(cardFileName(), blob)) === 'copied') monthCard.copied = true
   } catch {
     showToast('复制图片没成功，用「保存图片」吧')
   }
@@ -1091,6 +1153,7 @@ function onKey(e) {
   const tag = (e.target.tagName || '').toLowerCase()
   const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable
   if (e.key === 'Escape') {
+    if (editor.value) { closeEditor(); return }
     if (active.value) { active.value = ''; e.target.blur?.() }
     return
   }
@@ -1108,7 +1171,7 @@ function onKey(e) {
 onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
-  flushText() // 想说的话草稿会落盘
+  if (editor.value) stashDraft() // 没保存的一页进 sessionStorage，下次进来提示接着写
   clearTimeout(toastTimer)
   clearTimeout(stampTimer)
   if (rec.state === 'recording') {
@@ -1380,6 +1443,30 @@ onBeforeUnmount(() => {
 }
 
 .p-foot { margin-top: 18px; border-top: 1px dashed rgba(226, 160, 110, .6); padding-top: 12px; }
+
+/* ---------- 当天记录时间线 ---------- */
+.p-timeline { display: flex; flex-direction: column; gap: 12px; }
+.tl-row { display: flex; gap: 10px; align-items: flex-start; }
+.tl-row > .p-line { flex: 1; margin: 0; }
+.tl-time { flex: none; margin-top: 7px; font-size: 12px; color: var(--ink-3); background: rgba(240, 147, 75, .12); border-radius: 999px; padding: 2px 9px; font-variant-numeric: tabular-nums; }
+.tl-note { flex: 1; background: #fffdf6; border: 1px solid rgba(226, 160, 110, .45); border-radius: 14px; padding: 12px 15px 9px; }
+.tl-note-text { margin: 0; font-family: "KaiTi", "STKaiti", "Kaiti SC", serif; font-size: 16px; line-height: 1.95; color: #4a3520; white-space: pre-wrap; }
+.tl-note-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 12px; color: var(--ink-3); }
+.tl-note-ops a { color: var(--brand-deep); cursor: pointer; margin-left: 14px; text-decoration: underline; text-underline-offset: 3px; }
+.tl-note-ops .tl-del { color: #c0504a; }
+
+/* ---------- 写一页 ---------- */
+.pf-idle { display: flex; align-items: center; gap: 16px; }
+.pf-write { display: inline-flex; align-items: center; gap: 6px; }
+.pf-draft { font-size: 13px; color: var(--brand-deep); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.pf-edit textarea {
+  width: 100%; box-sizing: border-box; border: 1px solid rgba(226, 160, 110, .55); border-radius: 12px;
+  padding: 10px 14px; font-family: "KaiTi", "STKaiti", "Kaiti SC", serif; font-size: 16px; line-height: 1.8;
+  background: #fffdf6; color: #4a3520; resize: vertical; outline: none;
+}
+.pf-edit textarea:focus { border-color: rgba(240, 147, 75, .8); }
+.pf-edit textarea::placeholder { color: #c9b59c; }
+.pf-actions { margin-left: auto; display: flex; gap: 8px; }
 .p-text {
   width: 100%; border: none; background: transparent; resize: vertical; outline: none;
   font-family: "KaiTi", "STKaiti", "Kaiti SC", serif; font-size: 17px; line-height: 34px; color: #4a3520;

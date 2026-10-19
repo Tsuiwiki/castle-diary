@@ -58,6 +58,7 @@
 </template>
 
 <script setup>
+import { ta, her } from '../store.js'
 import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
 import { store, babyDayOfLife, babyMonths, latestGrowth, setAvatar, babyAgeText, growthPoints } from '../store.js'
@@ -100,8 +101,8 @@ const story = computed(() => {
   t(name)
   if (dayOfLife.value) { t('出生第 '); t(String(dayOfLife.value), true); t(` 天（${babyAgeText()}）`) }
   t('。')
-  if (spokenCount.value) { t('她会说 '); t(String(spokenCount.value), true); t(' 个词') }
-  else t('她还在攒第一个会说的词')
+  if (spokenCount.value) { t(her('她会说 ')); t(String(spokenCount.value), true); t(' 个词') }
+  else t(her('她还在攒第一个会说的词'))
   const fb = favBook.value
   if (fb?.reads?.length) { t('，最爱的书是'); t(`《${fb.title}》`, true); t(`（读了 ${fb.reads.length} 次）`) }
   if (heightGain.value) {

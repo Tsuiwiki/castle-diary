@@ -6,7 +6,7 @@ const good = () => ({
   settings: { childName: '小宝' },
   books: [{ id: 'b1', title: '书', coverId: 'c1' }],
   words: [], medicines: [], healths: [], vaccines: [], meals: [], toys: [],
-  milestones: [], photos: [], trips: [], diaries: [], games: [], foods: [], places: [],
+  milestones: [], photos: [], trips: [], diaries: [], dayStates: [], games: [], foods: [], places: [],
   illnesses: [], members: [],
   covers: [{ id: 'c1', dataUrl: 'data:image/png;base64,xx' }],
 })
@@ -79,6 +79,16 @@ describe('repairPayload', () => {
     const { payload } = repairPayload({ books: [{ id: 'x' }, { id: 'x' }] }, uid)
     expect(payload.books[0].id).toBe('x')
     expect(payload.books[1].id).not.toBe('x')
+  })
+  it('dayStates 重复日期被剔除（保留首条）', () => {
+    const { payload } = repairPayload({ dayStates: [{ id: 'a', date: '2026-10-19', mood: '开心' }, { id: 'b', date: '2026-10-19', mood: '犯困' }] }, uid)
+    expect(payload.dayStates.length).toBe(1)
+    expect(payload.dayStates[0].id).toBe('a')
+  })
+  it('dayStates 重复日期提示可修复', () => {
+    const d = good()
+    d.dayStates = [{ id: 'a', date: '2026-10-19' }, { id: 'b', date: '2026-10-19' }]
+    expect(checkBackup(d).fixable.join()).toContain('重复日期')
   })
   it('没有 id/dataUrl 的 cover 被剔除', () => {
     const { payload } = repairPayload({ settings: {}, covers: [{ id: 'a' }, { dataUrl: 'b' }, { id: 'c', dataUrl: 'd' }] }, uid)

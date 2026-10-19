@@ -5,7 +5,7 @@
 // 17 个业务集合（与 store.js persistNow 的字段清单保持一致）
 export const COLLECTIONS = [
   'books', 'words', 'medicines', 'healths', 'vaccines', 'meals', 'toys',
-  'milestones', 'photos', 'trips', 'diaries', 'games', 'foods', 'places',
+  'milestones', 'photos', 'trips', 'diaries', 'dayStates', 'games', 'foods', 'places',
   'illnesses', 'members',
 ]
 
@@ -74,6 +74,14 @@ export function checkBackup(data) {
     if (dupId) fixable.push(`「${k}」有 ${dupId} 个重复 id，导入时会改发新 id`)
   }
 
+  // dayStates 按 date 唯一：重复会在读取时取 find 第一条，提示可修复
+  if (Array.isArray(data.dayStates)) {
+    const seenDates = new Set()
+    let dupDay = 0
+    for (const r of data.dayStates) if (r?.date) { if (seenDates.has(r.date)) dupDay++; else seenDates.add(r.date) }
+    if (dupDay) fixable.push(`「dayStates」有 ${dupDay} 个重复日期，导入时会只保留每个日期的第一条`)
+  }
+
   // 媒体引用是否都在 covers 里
   const coverIds = new Set((Array.isArray(data.covers) ? data.covers : []).map(c => c?.id).filter(Boolean))
   let missingMedia = 0
@@ -116,6 +124,14 @@ export function repairPayload(data, uid) {
       seen.add(r.id)
       if (k === 'words') r.mastered = false || r.mastered // mastered 缺省 false
       return r
+    })
+  }
+  if (Array.isArray(payload.dayStates)) {
+    const seenD = new Set()
+    payload.dayStates = payload.dayStates.filter(r => {
+      if (!r?.date || seenD.has(r.date)) return false
+      seenD.add(r.date)
+      return true
     })
   }
   payload.settings = data.settings && typeof data.settings === 'object' ? { ...data.settings } : {}

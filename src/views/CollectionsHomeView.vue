@@ -2,7 +2,7 @@
   <div>
     <div class="view-head">
       <h2>分册</h2>
-      <div class="sub">同一本日记，按主题分开放。点卡片进去翻。</div>
+      <div class="sub">同一本日记，按主题分开放，随时进来翻。日常记录只需要写日记，这里自然会长出来。</div>
     </div>
 
     <div class="col-grid">
@@ -40,6 +40,18 @@
         <p class="col-sum">{{ tripSum }}</p>
         <div class="col-links" @click.stop><a @click="$emit('go', 'trips')">足迹册</a></div>
       </div>
+
+      <div class="card col-card" @click="$emit('go', 'health')">
+        <div class="card-title"><span class="ct-left"><Icon name="heart-pulse" :size="16" />健康</span></div>
+        <p class="col-desc">体检、生病、疫苗、药箱和提醒。</p>
+        <p class="col-sum">{{ healthSum }}</p>
+        <div class="col-links" @click.stop>
+          <a @click="$emit('go', 'health')">健康档案</a>
+          <a @click="$emit('go', 'illness')">生病记</a>
+          <a @click="$emit('go', 'medicine')">药箱</a>
+          <a @click="$emit('go', 'reminders')">提醒中心</a>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -47,7 +59,7 @@
 <script setup>
 // 分册总览：只做导航和已有数据摘要，不产生任何新业务数据
 import { computed } from 'vue'
-import { store } from '../store.js'
+import { store, her } from '../store.js'
 import Icon from '../components/Icon.vue'
 
 defineEmits(['go'])
@@ -55,7 +67,7 @@ defineEmits(['go'])
 const readSum = computed(() => {
   const b = store.books.length
   const w = store.words.length
-  if (!b && !w) return '还没开始：先添加一本绘本，或在今天的日记里记下她说的新词'
+  if (!b && !w) return her('日记里读过的书、她说过的词，会自动收进这里')
   const parts = []
   if (b) parts.push(`藏书 ${b} 本`)
   if (w) parts.push(`记下 ${w} 个词`)
@@ -64,17 +76,26 @@ const readSum = computed(() => {
 const playSum = computed(() => {
   const g = store.games.length
   const t = store.toys.length
-  if (!g && !t) return '还没记过游戏，今天在日记里点「玩了」就能记'
+  if (!g && !t) return '日记里点「玩了」记下的游戏，会收进这里'
   const parts = []
   if (g) parts.push(`${g} 种游戏`)
   if (t) parts.push(`${t} 件玩具`)
   return parts.join(' · ')
 })
 const dietSum = computed(() =>
-  store.meals.length ? `记了 ${store.meals.length} 餐` : '还没记过餐食，今天在日记里点「吃了」就能记'
+  store.meals.length ? `记了 ${store.meals.length} 餐` : '日记里点「吃了」记的餐食，会收进这里'
 )
+const healthSum = computed(() => {
+  const h = store.healths.length
+  const ill = store.illnesses.length
+  if (!h && !ill) return '体检、生病记在这里，看医生时拿得出来'
+  const parts = []
+  if (h) parts.push(`${h} 条档案`)
+  if (ill) parts.push(`${ill} 次生病`)
+  return parts.join(' · ')
+})
 const tripSum = computed(() => {
-  if (!store.trips.length) return '还没出过门的记录，今天在日记里点「去了」就能记'
+  if (!store.trips.length) return '日记里点「去了」记的出行，会收进这里'
   const latest = [...store.trips].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]
   return `${store.trips.length} 个足迹 · 最近一次 ${latest.date || ''} ${latest.place || latest.title || ''}`.trim()
 })

@@ -73,7 +73,7 @@
     <Icon name="alert-triangle" :size="16" />
     <span>
       词库里有 <b>{{ charWordCount }}</b> 个词标的是「识字」，日记会写成"认识了 XX"。
-      之前录词默认就是「识字」，如果这些其实是她<b>会说</b>的词，可以一键改成「词语」；个别真的是认字的，再到表格里单独改回来。
+      之前录词默认就是「识字」，如果这些其实是{{ ta() }}<b>会说</b>的词，可以一键改成「词语」；个别真的是认字的，再到表格里单独改回来。
     </span>
     <button class="mini-btn" @click="convertCharWords">全部改成「词语」</button>
     <button class="mini-btn ghost" @click="hideKindTip = true">先不改</button>
@@ -100,7 +100,7 @@
         @dblclick="toggleMastered(w)"
         :title="(w.pinyin ? w.pinyin + ' · ' : '') + (w.mastered ? '已掌握（双击改为学习中）' : '学习中（双击标记已掌握）')"
       >
-        {{ w.word }}<span v-if="w.funny" class="wquote on" title="金句">✨</span><img v-if="w.imageUrl" :src="w.imageUrl" class="wthumb" :alt="w.word" /><button v-if="w.audioUrl" class="waudio" title="听她说" @click.stop="playAudio(w.audioUrl)" @dblclick.stop><Icon name="volume" :size="12" /></button><span class="wkind">{{ w.kind }}{{ w.mastered ? ' · 已掌握' : '' }}</span>
+        {{ w.word }}<span v-if="w.funny" class="wquote on" title="金句">✨</span><img v-if="w.imageUrl" :src="w.imageUrl" class="wthumb" :alt="w.word" /><button v-if="w.audioUrl" class="waudio" :title="her('听她说')" @click.stop="playAudio(w.audioUrl)" @dblclick.stop><Icon name="volume" :size="12" /></button><span class="wkind">{{ w.kind }}{{ w.mastered ? ' · 已掌握' : '' }}</span>
         <button class="wdel" @click.stop="delWord(w)">×</button>
       </div>
     </div>
@@ -117,7 +117,7 @@
             <button v-else class="wt-addimg" title="上传配图" @click="replaceImage(w)">＋</button>
           </td>
           <td class="wt-word">
-            {{ w.word }}<button v-if="w.audioUrl" class="waudio" title="听她说" @click="playAudio(w.audioUrl)"><Icon name="volume" :size="12" /></button>
+            {{ w.word }}<button v-if="w.audioUrl" class="waudio" :title="her('听她说')" @click="playAudio(w.audioUrl)"><Icon name="volume" :size="12" /></button>
             <button v-if="w.kind === '句子'" class="wquote" :class="{ on: w.funny }" :title="w.funny ? '取消金句' : '标为金句（童言稚语）'" @click="updateWord(w.id, { funny: !w.funny })">✨</button>
           </td>
           <td>
@@ -128,7 +128,7 @@
           <td><input class="wt-input" :value="w.pinyin" placeholder="—" @change="e => editWord(w, 'pinyin', e.target.value)" /></td>
           <td><input class="wt-input" :value="w.meaning" placeholder="—" @change="e => editWord(w, 'meaning', e.target.value)" /></td>
           <td>{{ w.sourceBook ? '《' + w.sourceBook + '》' : '随手记' }}</td>
-          <td>{{ w.date }}</td>
+          <td><a class="wdate-link" title="回到那天的日记" @click="openDay(w.date)">{{ w.date }}</a></td>
           <td><span class="wt-state" :class="{ on: w.mastered }" @click="toggleMastered(w)">{{ w.mastered ? '已掌握' : '学习中' }}</span></td>
           <td><button class="wdel" style="position:static;opacity:1" @click="delWord(w)">×</button></td>
         </tr>
@@ -164,10 +164,13 @@
 </template>
 
 <script setup>
+const emit = defineEmits(['go'])
+import { ta, her } from '../store.js'
 import { ref, computed, reactive, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import WordCardSheet from '../components/WordCardSheet.vue'
 import PicQuizSheet from '../components/PicQuizSheet.vue'
+import { diaryDate } from '../store.js'
 import { store, addWord, removeWord, setWordMastered, updateWord, setWordImage, WORD_KINDS } from '../store.js'
 import { compressImage } from '../utils/image.js'
 import { genPinyin } from '../utils/pinyin.js'
@@ -257,7 +260,7 @@ const hideKindTip = ref(false)
 const charWordCount = computed(() => store.words.filter(w => w.kind === '识字').length)
 function convertCharWords() {
   const list = store.words.filter(w => w.kind === '识字')
-  if (!confirm(`把 ${list.length} 个「识字」的词都改成「词语」（她会说的词）？之后可以在表格里单独改回`)) return
+  if (!confirm(her(`把 ${list.length} 个「识字」的词都改成「词语」（她会说的词）？之后可以在表格里单独改回`))) return
   for (const w of list) updateWord(w.id, { kind: '词语' })
 }
 
@@ -268,9 +271,15 @@ function delWord(w) {
 function toggleMastered(w) {
   setWordMastered(w.id, !w.mastered)
 }
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
 </script>
 
 <style scoped>
+.wdate-link { color: var(--brand-deep); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
 .kind-tip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; line-height: 1.6; border: 1px solid rgba(240, 147, 75, .45); background: #fff7ee; }
 .kind-tip > svg { color: var(--brand-deep); flex: none; }
 .kind-tip > span { flex: 1; min-width: 260px; }

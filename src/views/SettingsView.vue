@@ -28,8 +28,16 @@
         <input type="date" v-model="birthday" />
       </div>
     </div>
+    <div class="form-row">
+      <label>日记里怎么称呼孩子</label>
+      <div class="chip-row">
+        <span v-for="p in PRONOUNS" :key="p.key" class="chip" :class="{ sel: pronoun === p.key }" @click="pronoun = p.key">{{ p.label }}</span>
+      </div>
+      <div class="pron-eg">示例：{{ pronounExample }}</div>
+    </div>
     <button class="btn-primary" @click="saveProfile">保存</button>
     <span v-if="savedTip" style="margin-left:10px;font-size:12px;color:var(--green)">已保存</span>
+    <span class="replay-ob"><a href="./privacy.html">隐私政策</a> · <a @click="replayOnboarding">再看一遍新手引导</a></span>
   </div>
 
   <!-- 陪读偏好 -->
@@ -159,8 +167,8 @@
     </p>
   </div>
 
-  <!-- OCR 设置 -->
-  <div class="card" id="st-ocr">
+  <!-- OCR 设置（安卓 App 版不联网，不提供封面识别） -->
+  <div v-if="!isApp()" class="card" id="st-ocr">
     <div class="card-title">
       <span class="ct-left"><Icon name="scan" :size="16" />封面识别（OCR）</span>
       <span class="more">{{ hasCustomOcrKey() ? '已用自己的 key' : '正在用公共 demo key' }}</span>
@@ -185,7 +193,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { isApp, saveFile, platformLabel } from '../utils/platform.js'
+import { PRONOUNS } from '../store.js'
+import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
 import { store, updateSettings, exportBackup, importBackup, resetAll, todayStr, markExported, autoBackup, enableAutoBackup, resumeAutoBackup, disableAutoBackup } from '../store.js'
 import { SEASON_BG_PREFS } from '../utils/seasonTheme.js'
@@ -195,6 +205,11 @@ import { speak, listZhVoices, getTtsVoiceName, setTtsVoiceName } from '../utils/
 
 const childName = ref(store.settings.childName)
 const birthday = ref(store.settings.birthday)
+const pronoun = ref(store.settings.pronoun || 'she')
+const pronounExample = computed(() => {
+  const w = pronoun.value === 'he' ? '他' : pronoun.value === 'baby' ? '宝宝' : pronoun.value === 'name' ? (childName.value || '宝宝') : '她'
+  return `${w}今天说了新词“月亮”，这是${w}会说的第 3 个词。`
+})
 const savedTip = ref(false)
 const ocrKey = ref(hasCustomOcrKey() ? getOcrKey() : '')
 const importInput = ref(null)
@@ -216,8 +231,12 @@ function saveTts() {
   updateSettings({ tts: ttsOn.value })
 }
 
+function replayOnboarding() {
+  window.dispatchEvent(new Event('castle-replay-onboarding'))
+}
+
 function saveProfile() {
-  updateSettings({ childName: childName.value, birthday: birthday.value })
+  updateSettings({ childName: childName.value, birthday: birthday.value, pronoun: pronoun.value })
   savedTip.value = true
   setTimeout(() => savedTip.value = false, 1500)
 }
@@ -246,16 +265,13 @@ async function doExport() {
   const warning = data.__mediaWarning || ''
   delete data.__mediaWarning
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
+  const r = await saveFile(`城堡日记-备份-${todayStr().replaceAll('-', '')}.json`, blob, 'application/json')
+  if (r === 'cancelled') return // 在分享面板里取消了，不算已备份
   if (warning) {
-    alert('备份文件已下载，但要注意：' + warning + '。这次不记为"已备份"。')
+    alert('备份文件已生成，但要注意：' + warning + '。这次不记为"已备份"。')
   } else {
     markExported()
   }
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `城堡日记-备份-${todayStr().replaceAll('-', '')}.json`
-  a.click()
-  URL.revokeObjectURL(a.href)
 }
 
 async function onImport(e) {
@@ -394,6 +410,9 @@ function toast(m) {
 </script>
 
 <style scoped>
+.replay-ob { float: right; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+.replay-ob a { color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.pron-eg { font-size: 12px; color: var(--ink-2); margin-top: 6px; }
 /* 设置页快速定位目录 */
 .st-toc { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; }
 .st-toc a { flex: none; font-size: 12.5px; color: var(--ink-2); background: rgba(255,255,255,.6); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; text-decoration: none; }

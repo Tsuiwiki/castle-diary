@@ -11,8 +11,8 @@
     <template v-if="!finished && current">
       <div class="card-stage">
         <div class="flash-card" @click="flipped = !flipped">
-          <button class="fc-tts" :class="{ 'fc-her': current.audioUrl }" :title="current.audioUrl ? '再听一遍她说的' : '再读一遍'" @click.stop="sayIt(current, true)"><Icon name="volume" :size="20" /></button>
-          <div v-if="current.audioUrl" class="fc-her-tag">她的声音</div>
+          <button class="fc-tts" :class="{ 'fc-her': current.audioUrl }" :title="current.audioUrl ? her('再听一遍她说的') : '再读一遍'" @click.stop="sayIt(current, true)"><Icon name="volume" :size="20" /></button>
+          <div v-if="current.audioUrl" class="fc-her-tag">{{ ta() }}的声音</div>
           <!-- 正面（早教机卡片版式）：配图 → 拼音 → 大字 -->
           <img v-if="current.imageUrl" :src="current.imageUrl" class="fc-img" :alt="current.word" />
           <div v-if="current.pinyin" class="fc-pinyin-front">{{ current.pinyin }}</div>
@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+import { ta, her } from '../store.js'
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import { store, setWordMastered } from '../store.js'

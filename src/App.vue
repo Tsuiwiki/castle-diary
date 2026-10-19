@@ -47,7 +47,7 @@
       </button>
       <div class="brand">
         <Icon name="castle" :size="24" />
-        <span class="brand-text">城堡日记<span class="brand-sub">{{ store.settings.childName ? store.settings.childName + '的小城堡' : '一天一页的成长日记' }}</span></span>
+        <span class="brand-text">城堡日记<span class="brand-sub">{{ store.settings.childName ? store.settings.childName + '的小城堡' : '随手写写的成长日记' }}</span></span>
       </div>
       <div
         v-for="n in NAV" :key="n.key"
@@ -61,12 +61,12 @@
       </div>
       <!-- 本月概况 -->
       <div class="side-stats">
-        <div class="ss-item"><span>本月写了</span><b>{{ monthDays }}</b><span>天日记</span></div>
         <div class="ss-item"><span>存了</span><b>{{ store.photos.length }}</b><span>张照片</span></div>
         <div class="ss-item"><span>城堡藏书</span><b>{{ store.books.length }}</b><span>本</span></div>
+        <div class="ss-item"><span>会说的词</span><b>{{ store.words.length }}</b><span>个</span></div>
       </div>
       <div class="side-foot">
-        数据保存在本机浏览器<br>设置页可导出备份 · v{{ APP_VERSION }}
+        数据保存在{{ isApp() ? '这台手机' : '本机浏览器' }}<br>设置页可导出备份 · {{ platformLabel() }} v{{ APP_VERSION }}
       </div>
     </nav>
 
@@ -78,7 +78,7 @@
           <a @click="switchView('settings')">去导出备份 →</a>
         </div>
         <!-- 分组入口的子标签 -->
-        <div v-if="currentGroup && view !== 'collections'" class="subtabs">
+        <div v-if="currentGroup && view !== 'collections' && view !== 'memories'" class="subtabs">
           <span
             v-for="c in currentGroup.children" :key="c.key"
             class="subtab" :class="{ on: c.key === 'cards' ? cardOpen : view === c.key }"
@@ -88,19 +88,22 @@
 
         <DiaryView v-if="view === 'diary'" @go="go" />
         <DiaryCalendarView v-else-if="view === 'calendar'" @go="go" />
+        <MemoriesView v-else-if="view === 'memories'" @go="go" />
+        <QuotesView v-else-if="view === 'quotes'" @go="go" />
+        <MomentsView v-else-if="view === 'moments'" @go="go" />
         <CollectionsHomeView v-if="view === 'collections'" @go="switchView" />
-        <ShelfView v-else-if="view === 'shelf'" @open="id => bookId = id" />
-        <WordsView v-else-if="view === 'words'" />
-        <DietView v-else-if="view === 'diet'" />
-        <GamesView v-else-if="view === 'games'" />
+        <ShelfView v-else-if="view === 'shelf'" @open="id => bookId = id" @go="go" />
+        <WordsView v-else-if="view === 'words'" @go="go" />
+        <DietView v-else-if="view === 'diet'" @go="go" />
+        <GamesView v-else-if="view === 'games'" @go="go" />
         <ToysView v-else-if="view === 'toys'" />
         <MedicineView v-else-if="view === 'medicine'" />
         <IllnessView v-else-if="view === 'illness'" @go="go" />
         <HealthView v-else-if="view === 'health'" />
         <WeeklyView v-else-if="view === 'weekly'" @go="go" />
         <YearView v-else-if="view === 'year'" @go="go" />
-        <AlbumView v-else-if="view === 'album'" />
-        <TripsView v-else-if="view === 'trips'" />
+        <AlbumView v-else-if="view === 'album'" @go="go" />
+        <TripsView v-else-if="view === 'trips'" @go="go" />
         <ProfileView v-else-if="view === 'profile'" @go="go" />
         <MembersView v-else-if="view === 'members'" />
         <RemindersView v-else-if="view === 'reminders'" @go="go" />
@@ -118,6 +121,9 @@
     <!-- 翻卡巩固（未掌握优先，词库为空时提示） -->
     <WordCardSheet v-if="cardOpen" :words="store.words" @close="cardOpen = false" />
 
+    <!-- 新手引导：全新安装时出现一次（设置里可重看） -->
+    <Onboarding v-if="showOnboarding" @done="onboardDone" @import="onboardImport" />
+
     <!-- 播放录音失败的原因（日记、词库、翻卡共用） -->
     <div v-if="audioError" class="toast toast-err">{{ audioError }}</div>
   </div>
@@ -128,7 +134,12 @@
 import { ref, computed, watch, nextTick , onMounted, onBeforeUnmount } from 'vue'
 import Icon from './components/Icon.vue'
 import DiaryView from './views/DiaryView.vue'
+import Onboarding from './components/Onboarding.vue'
+import { initAppShell, isApp, platformLabel } from './utils/platform.js'
 import DiaryCalendarView from './views/DiaryCalendarView.vue'
+import MemoriesView from './views/MemoriesView.vue'
+import QuotesView from './views/QuotesView.vue'
+import MomentsView from './views/MomentsView.vue'
 import CollectionsHomeView from './views/CollectionsHomeView.vue'
 import ShelfView from './views/ShelfView.vue'
 import BookView from './views/BookView.vue'
@@ -148,7 +159,7 @@ import MembersView from './views/MembersView.vue'
 import RemindersView from './views/RemindersView.vue'
 import SettingsView from './views/SettingsView.vue'
 import WordCardSheet from './components/WordCardSheet.vue'
-import { store, ready, APP_VERSION, addBookSignal, diaryDate, todayStr, storageError, dataCorrupt, downloadCorruptRaw, importBackup, resetAll } from './store.js'
+import { her, store, ready, updateSettings, APP_VERSION, addBookSignal, diaryDate, todayStr, storageError, dataCorrupt, downloadCorruptRaw, importBackup, resetAll } from './store.js'
 import { lock, initAppLock, onHidden, onVisible, onStorageSignal, lockNow } from './utils/appLock.js'
 import { applySeasonTheme } from './utils/seasonTheme.js'
 import AppLockOverlay from './components/AppLockOverlay.vue'
@@ -203,13 +214,29 @@ function onVisChange() {
   if (document.hidden) onHidden()
   else onVisible()
 }
-import { monthIndex } from './utils/diaryText.js'
 import { audioError } from './utils/recorder.js'
 
 // 一级入口 6 个；带 children 的是"分组"，进入后顶部出子标签切换原有页面
+// v2.0 信息架构：四个一级入口——日记 / 回忆 / 分册 / 我的（PRD V1.0）
 const NAV = [
-  { key: 'diary', icon: 'book', label: '今天的日记', short: '日记' },
-  { key: 'calendar', icon: 'calendar', label: '日记日历', short: '日历' },
+  {
+    key: 'g-diary', icon: 'book', label: '日记', short: '日记',
+    children: [
+      { key: 'diary', icon: 'book', label: '今天的日记' },
+    ],
+  },
+  {
+    key: 'g-memory', icon: 'camera', label: '回忆', short: '回忆',
+    children: [
+      { key: 'memories', icon: 'sparkles', label: '总览' },
+      { key: 'calendar', icon: 'calendar', label: '往日日记' },
+      { key: 'album', icon: 'camera', label: '相册' },
+      { key: 'quotes', icon: 'message-circle', label: '她说过的话' },
+      { key: 'moments', icon: 'award', label: '第一次与重要时刻' },
+      { key: 'weekly', icon: 'calendar', label: '成长周报' },
+      { key: 'year', icon: 'award', label: '年度回顾' },
+    ],
+  },
   {
     key: 'g-books', icon: 'library', label: '分册', short: '分册',
     children: [
@@ -221,20 +248,6 @@ const NAV = [
       { key: 'games', icon: 'sparkles', label: '游戏册' },
       { key: 'toys', icon: 'blocks', label: '玩具屋' },
       { key: 'trips', icon: 'map-pin', label: '足迹册' },
-    ],
-  },
-  {
-    key: 'g-memory', icon: 'camera', label: '回忆', short: '回忆',
-    children: [
-      { key: 'album', icon: 'camera', label: '相册' },
-      { key: 'weekly', icon: 'calendar', label: '成长周报' },
-      { key: 'year', icon: 'award', label: '年度回顾' },
-      { key: 'profile', icon: 'baby', label: '成长名片' },
-    ],
-  },
-  {
-    key: 'g-health', icon: 'heart-pulse', label: '健康', short: '健康',
-    children: [
       { key: 'health', icon: 'heart-pulse', label: '健康档案' },
       { key: 'illness', icon: 'alert-triangle', label: '生病记' },
       { key: 'medicine', icon: 'pill', label: '药箱' },
@@ -242,10 +255,11 @@ const NAV = [
     ],
   },
   {
-    key: 'g-settings', icon: 'settings', label: '设置', short: '设置',
+    key: 'g-mine', icon: 'settings', label: '我的', short: '我的',
     children: [
       { key: 'settings', icon: 'settings', label: '设置' },
-      { key: 'members', icon: 'users', label: '家庭成员管理' },
+      { key: 'members', icon: 'users', label: '家庭成员' },
+      { key: 'profile', icon: 'baby', label: '成长名片' },
     ],
   },
 ]
@@ -259,16 +273,18 @@ const groupOf = key => NAV.find(n => n.children?.some(c => c.key === key))
 const currentGroup = computed(() => groupOf(view.value) || null)
 const activeTop = computed(() => currentGroup.value?.key || view.value)
 
-const monthDays = computed(() => Object.keys(monthIndex(todayStr().slice(0, 7))).length)
 
 function clickTop(n) {
   if (n.children) {
     // 分册特殊化：每次点击都回总览，不直接跳进某个具体分册
     if (n.key === 'g-books') { switchView('collections'); return }
+    // 日记组：点一级永远回「今天的日记」
+    if (n.key === 'g-diary') { diaryDate.value = todayStr(); switchView('diary'); return }
+    // 回忆组：点一级进「记忆收藏室」总览
+    if (n.key === 'g-memory') { switchView('memories'); return }
     switchView(lastChild[n.key] || n.children[0].key)
     return
   }
-  if (n.key === 'diary') diaryDate.value = todayStr()
   switchView(n.key)
 }
 
@@ -279,6 +295,49 @@ function switchView(key) {
   const g = groupOf(key)
   if (g) lastChild[g.key] = key
 }
+
+// ---------- 新手引导 ----------
+// 判定"全新安装"：没填过小名、也没有任何记录。老用户（有数据但没有 onboarded 字段）静默标记，永远不打扰。
+const hasAnyData = () => !!(store.settings.childName || store.diaries.length || store.books.length || store.words.length ||
+  store.meals.length || store.photos.length || store.trips.length || store.games.length || store.healths.length || store.illnesses.length)
+// 只在加载完成时判定一次并锁定：引导第 1 步会先存小名，不能因此让引导框中途消失
+const replayOnboarding = ref(false)
+const showOnboarding = computed(() => ready.value && lock.ready && !dataCorrupt.value && replayOnboarding.value)
+watch(ready, ok => {
+  if (!ok || store.settings.onboarded) return
+  if (hasAnyData()) updateSettings({ onboarded: true, pwaHintShown: true })
+  else replayOnboarding.value = true
+}, { immediate: true })
+function onboardDone() {
+  replayOnboarding.value = false
+  switchView('diary')
+}
+function onboardImport() {
+  replayOnboarding.value = false
+  switchView('settings')
+  nextTick(() => document.getElementById('st-backup')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+// ---------- 安卓返回键：先关最上层的弹层，再回日记页，在日记页就退到后台 ----------
+function closeTopOverlay() {
+  const masks = [...document.querySelectorAll('.drawer-mask, .lb-mask')]
+  if (masks.length) { masks[masks.length - 1].click(); return true }
+  if (document.querySelector('.ob-mask')) return true // 新手引导里返回键不做事，用「跳过」
+  if (document.querySelector('.card-mask, .gb-root') || document.querySelector('.pf-edit textarea') || document.querySelector('.stickers .sticker.on')) {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    return true
+  }
+  return false
+}
+initAppShell({
+  fallback: () => {
+    if (closeTopOverlay()) return true
+    if (view.value !== 'diary') { switchView('diary'); return true }
+    return false
+  },
+})
+
+// 设置页「再看一遍新手引导」
+window.addEventListener('castle-replay-onboarding', () => { replayOnboarding.value = true })
 
 // 子页面之间的跳转（提醒、档案、日记页都会用到）
 function go(key) {
@@ -292,7 +351,7 @@ function go(key) {
 
 function openCards() {
   if (!store.words.length) {
-    alert('词库还是空的，先在日记里记几个她说的词，或去书房读本书、记几个词吧')
+    alert(her('词库还是空的，先在日记里记几个她说的词，或去书房读本书、记几个词吧'))
     return
   }
   cardOpen.value = true

@@ -1,7 +1,7 @@
 <template>
   <div class="view-head">
     <h2>游戏册</h2>
-    <div class="sub">一家人一起玩过的游戏，以及她一次次学会的样子</div>
+    <div class="sub">一家人一起玩过的游戏，以及{{ ta() }}一次次学会的样子</div>
   </div>
 
   <div class="stat-row">
@@ -25,7 +25,7 @@
         <span v-if="picked.isIdea" class="g-tag tag-idea">灵感库</span>
         <span v-if="picked.isIdea && inSeason(picked)" class="g-tag tag-season">应景</span>
       </div>
-      <div v-if="picked.how" class="pick-how">{{ picked.how }}</div>
+      <div v-if="picked.how" class="pick-how">{{ picked.isIdea ? her(picked.how) : picked.how }}</div>
       <div v-if="picked.last" class="pick-last">上次玩是 {{ picked.last }}</div>
       <div class="pick-actions">
         <button v-if="picked.isIdea" class="mini-btn" @click="addIdea(picked)">加入游戏册</button>
@@ -82,7 +82,7 @@
               <span v-for="t in i.tags" :key="t" class="g-tag sm" :class="'tag-' + tagIndex(t)">{{ t }}</span>
               <span v-if="inSeason(i)" class="g-tag sm tag-season">应景</span>
             </div>
-            <div class="idea-how">{{ i.how }}</div>
+            <div class="idea-how">{{ her(i.how) }}</div>
           </div>
           <button class="mini-btn ghost" @click="addIdea(i)">加入</button>
         </div>
@@ -123,7 +123,7 @@
 
             <!-- 进步线：新的在上 -->
             <div v-if="g.plays.length" class="g-line">
-              <div v-for="p in shownPlays(g)" :key="p.id" class="gl-item" :class="{ first: p.first }">
+              <div v-for="p in shownPlays(g)" :key="p.id" class="gl-item gl-click" :class="{ first: p.first }" title="回到那天的日记" @click="openDay(p.date)">
                 <span class="gl-date">{{ p.date.slice(5) }}</span>
                 <span class="gl-dot"></span>
                 <span class="gl-text">{{ p.note || '玩了一次' }}<span v-if="p.first" class="gl-stamp">第一次</span></span>
@@ -136,7 +136,7 @@
 
             <!-- 记一次 -->
             <div v-if="playingId === g.id" class="g-playform">
-              <input v-model.trim="pf.note" class="pf-input" placeholder="她的表现（可选）" @keyup.enter="savePlay(g)" />
+              <input v-model.trim="pf.note" class="pf-input" :placeholder="her('她的表现（可选）')" @keyup.enter="savePlay(g)" />
               <div class="pf-row">
                 <span class="chip chip-first" :class="{ sel: pf.first }" @click="pf.first = !pf.first">🏅 第一次完成</span>
                 <input v-model="pf.date" type="date" :max="todayStr()" class="pf-date" />
@@ -163,6 +163,8 @@
 </template>
 
 <script setup>
+const emit = defineEmits(['go'])
+import { ta, her, diaryDate } from '../store.js'
 import { ref, reactive, computed, nextTick } from 'vue'
 import Icon from '../components/Icon.vue'
 import {
@@ -270,7 +272,7 @@ const ideasAll = computed(() =>
 )
 const ideas = computed(() => ideasAll.value.filter(i => !ideaTag.value || (i.tags || []).includes(ideaTag.value)))
 function addIdea(i) {
-  const g = addGame({ name: i.name, tags: i.tags, how: i.how })
+  const g = addGame({ name: i.name, tags: i.tags, how: her(i.how) }) // 灵感文案入册时按当前称呼落字
   showToast(`「${g.name}」加入了游戏册`)
   if (picked.value?.name === i.name) picked.value = { id: g.id, name: g.name, tags: g.tags, how: g.how, last: '', isIdea: false }
   flash(g.id)
@@ -334,9 +336,16 @@ function delPlay(g, p) {
   if (!confirm(`删掉 ${p.date} 这次「${g.name}」的记录？`)) return
   removePlay(g.id, p.id)
 }
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
 </script>
 
 <style scoped>
+.gl-click { cursor: pointer; }
+.gl-click:hover { background: rgba(240, 147, 75, .08); border-radius: 8px; }
+
 .g-top-name { font-size: 16px !important; line-height: 29px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pick-card { border: 1px dashed rgba(155, 143, 208, .6); }
 .pick-empty { font-size: 13px; color: var(--ink-2); }
