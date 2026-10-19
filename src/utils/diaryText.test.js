@@ -78,10 +78,11 @@ describe('buildDayItems', () => {
       ] }],
     }))
     expect(items.length).toBe(2)
-    // 时间线按时间正序：早上那次在前
+    // 时间线按时间正序：早上那次在前；次数在 suffix 属性里（界面渲染成（第 N 次））
     expect(items[0].time).toBe('10:00')
-    expect(textOf(items[0])).toBe('读了《毛毛虫》，第 1 次。')
-    expect(textOf(items[1])).toBe('读了《毛毛虫》，第 2 次。')
+    expect(textOf(items[0])).toBe('读了《毛毛虫》。')
+    expect(items[0].tokens[1].suffix).toBe('第 1 次')
+    expect(items[1].tokens[1].suffix).toBe('第 2 次')
   })
   it('生病：病程句按天生成，用药关联正确', () => {
     const items = buildDayItems(D, ctx({
