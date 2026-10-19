@@ -110,8 +110,8 @@ import { isApp, printPage } from '../utils/platform.js'
 // 年度成长书：纯本地拼版，借浏览器「打印 → 另存为 PDF」输出。不引入 PDF 库、不上传任何内容。
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import CastleSvg from './CastleSvg.vue'
-import { store, rangeReport, MOODS, getDiary, todayStr, babyAgeText, updateSettings } from '../store.js'
-import { dayLines, monthIndex } from '../utils/diaryText.js'
+import { store, rangeReport, MOODS, getDiaries, getDayState, todayStr, babyAgeText, updateSettings } from '../store.js'
+import { dayLines, dayTexts, monthIndex } from '../utils/diaryText.js'
 
 const props = defineProps({ year: { type: Number, required: true } })
 const emit = defineEmits(['close'])
@@ -158,13 +158,16 @@ const months = computed(() => {
     const dates = Object.keys(monthIndex(ym)).sort()
     const days = []
     for (const date of dates) {
-      const { lines, diary } = dayLines(date)
-      const text = (diary?.text || '').trim()
-      const ls = lines.filter(l => l.key !== 'mood').map(l => l.tokens.map(t => t.v).join('')).filter(Boolean)
-      if (!ls.length && !text && !diary?.mood) continue
+      const { lines } = dayLines(date)
+      const texts = dayTexts(date) // 一天可多篇：正文合并；落款取最后一篇的
+      const text = texts.join('\n').trim()
+      const moodKey = getDayState(date)
+      const ls = lines.map(l => l.tokens.map(t => t.v).join('')).filter(Boolean)
+      if (!ls.length && !text && !moodKey) continue
+      const lastEntry = getDiaries(date)[getDiaries(date).length - 1]
       days.push({
-        date, lines: ls, text, by: diary?.by || '',
-        mood: diary?.mood ? MOODS.find(x => x.key === diary.mood) : null,
+        date, lines: ls, text, by: lastEntry?.by || '',
+        mood: moodKey ? MOODS.find(x => x.key === moodKey) : null,
       })
     }
     if (!days.length) continue

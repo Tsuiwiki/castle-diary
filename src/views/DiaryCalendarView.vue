@@ -68,7 +68,7 @@
 import { ta, her } from '../store.js'
 import { ref, computed } from 'vue'
 import Icon from '../components/Icon.vue'
-import { store, MOODS, diaryDate, todayStr, getDiary } from '../store.js'
+import { store, MOODS, diaryDate, todayStr, getDayState } from '../store.js'
 import { monthIndex, dayLines } from '../utils/diaryText.js'
 import CastleSvg from '../components/CastleSvg.vue'
 import { seasonOf } from '../utils/solarTerms.js'
@@ -101,7 +101,7 @@ function pick(date) {
   picked.value = picked.value === date ? '' : date
 }
 const peekMood = computed(() => {
-  const m = getDiary(picked.value)?.mood
+  const m = getDayState(picked.value)
   return m ? MOODS.find(x => x.key === m) : null
 })
 const peekAllLines = computed(() => picked.value ? (dayLines(picked.value).lines || []).map(l => l.tokens.map(t => t.v).join('')).filter(Boolean) : [])

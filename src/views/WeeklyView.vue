@@ -199,8 +199,8 @@ import { isApp, saveFile, copyOrShareImage } from '../utils/platform.js'
 import { ref, reactive, computed } from 'vue'
 import Icon from '../components/Icon.vue'
 import RainbowPlate from '../components/RainbowPlate.vue'
-import { store, rangeReport, babyDayOfLife, MOODS, getDiary, diaryDate, dayFoodGroups } from '../store.js'
-import { dayLines } from '../utils/diaryText.js'
+import { store, rangeReport, babyDayOfLife, MOODS, getDayState, diaryDate, dayFoodGroups } from '../store.js'
+import { dayLines, dayTexts } from '../utils/diaryText.js'
 import { renderWeeklyPoster } from '../utils/monthCard.js'
 import { DEFAULT_WEEKLY_SHARE_OPTIONS, SHARE_OPTION_LABELS, buildWeeklySharePayload, buildWeeklyShareText } from '../utils/weeklyShare.js'
 
@@ -248,11 +248,11 @@ const diaryDays = computed(() => {
   return WEEK_CN.map((week, i) => {
     const date = fmt(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i))
     const e = dayLines(date)
-    const diary = getDiary(date)
-    const text = e.lines.filter(l => l.key !== 'mood').map(l => l.tokens.map(t => t.v).join('')).join(' ') + (diary?.text ? ` ${diary.text}` : '')
+    const texts = dayTexts(date) // 一天可多篇：正文合并进摘要
+    const text = e.lines.map(l => l.tokens.map(t => t.v).join('')).join(' ') + (texts.length ? ` ${texts.join(' ')}` : '')
     return {
       date, week, text: text.trim(),
-      mood: MOODS.find(m => m.key === diary?.mood) || null,
+      mood: MOODS.find(m => m.key === getDayState(date)) || null,
       photos: e.photos.filter(p => p.imageUrl),
       groups: dayFoodGroups(date),
       mealCount: store.meals.filter(m => m.date === date).length,
