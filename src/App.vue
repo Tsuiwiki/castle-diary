@@ -78,7 +78,7 @@
           <a @click="switchView('settings')">去导出备份 →</a>
         </div>
         <!-- 分组入口的子标签 -->
-        <div v-if="currentGroup && view !== 'collections'" class="subtabs">
+        <div v-if="currentGroup && view !== 'collections' && view !== 'memories'" class="subtabs">
           <span
             v-for="c in currentGroup.children" :key="c.key"
             class="subtab" :class="{ on: c.key === 'cards' ? cardOpen : view === c.key }"
@@ -88,19 +88,22 @@
 
         <DiaryView v-if="view === 'diary'" @go="go" />
         <DiaryCalendarView v-else-if="view === 'calendar'" @go="go" />
+        <MemoriesView v-else-if="view === 'memories'" @go="go" />
+        <QuotesView v-else-if="view === 'quotes'" @go="go" />
+        <MomentsView v-else-if="view === 'moments'" @go="go" />
         <CollectionsHomeView v-if="view === 'collections'" @go="switchView" />
-        <ShelfView v-else-if="view === 'shelf'" @open="id => bookId = id" />
-        <WordsView v-else-if="view === 'words'" />
-        <DietView v-else-if="view === 'diet'" />
-        <GamesView v-else-if="view === 'games'" />
+        <ShelfView v-else-if="view === 'shelf'" @open="id => bookId = id" @go="go" />
+        <WordsView v-else-if="view === 'words'" @go="go" />
+        <DietView v-else-if="view === 'diet'" @go="go" />
+        <GamesView v-else-if="view === 'games'" @go="go" />
         <ToysView v-else-if="view === 'toys'" />
         <MedicineView v-else-if="view === 'medicine'" />
         <IllnessView v-else-if="view === 'illness'" @go="go" />
         <HealthView v-else-if="view === 'health'" />
         <WeeklyView v-else-if="view === 'weekly'" @go="go" />
         <YearView v-else-if="view === 'year'" @go="go" />
-        <AlbumView v-else-if="view === 'album'" />
-        <TripsView v-else-if="view === 'trips'" />
+        <AlbumView v-else-if="view === 'album'" @go="go" />
+        <TripsView v-else-if="view === 'trips'" @go="go" />
         <ProfileView v-else-if="view === 'profile'" @go="go" />
         <MembersView v-else-if="view === 'members'" />
         <RemindersView v-else-if="view === 'reminders'" @go="go" />
@@ -134,6 +137,9 @@ import DiaryView from './views/DiaryView.vue'
 import Onboarding from './components/Onboarding.vue'
 import { initAppShell, isApp, platformLabel } from './utils/platform.js'
 import DiaryCalendarView from './views/DiaryCalendarView.vue'
+import MemoriesView from './views/MemoriesView.vue'
+import QuotesView from './views/QuotesView.vue'
+import MomentsView from './views/MomentsView.vue'
 import CollectionsHomeView from './views/CollectionsHomeView.vue'
 import ShelfView from './views/ShelfView.vue'
 import BookView from './views/BookView.vue'
@@ -217,16 +223,18 @@ const NAV = [
     key: 'g-diary', icon: 'book', label: '日记', short: '日记',
     children: [
       { key: 'diary', icon: 'book', label: '今天的日记' },
-      { key: 'calendar', icon: 'calendar', label: '日记日历' },
     ],
   },
   {
     key: 'g-memory', icon: 'camera', label: '回忆', short: '回忆',
     children: [
+      { key: 'memories', icon: 'sparkles', label: '总览' },
+      { key: 'calendar', icon: 'calendar', label: '往日日记' },
       { key: 'album', icon: 'camera', label: '相册' },
+      { key: 'quotes', icon: 'message-circle', label: '她说过的话' },
+      { key: 'moments', icon: 'award', label: '第一次与重要时刻' },
       { key: 'weekly', icon: 'calendar', label: '成长周报' },
       { key: 'year', icon: 'award', label: '年度回顾' },
-      { key: 'profile', icon: 'baby', label: '成长名片' },
     ],
   },
   {
@@ -251,6 +259,7 @@ const NAV = [
     children: [
       { key: 'settings', icon: 'settings', label: '设置' },
       { key: 'members', icon: 'users', label: '家庭成员' },
+      { key: 'profile', icon: 'baby', label: '成长名片' },
     ],
   },
 ]
@@ -271,6 +280,8 @@ function clickTop(n) {
     if (n.key === 'g-books') { switchView('collections'); return }
     // 日记组：点一级永远回「今天的日记」
     if (n.key === 'g-diary') { diaryDate.value = todayStr(); switchView('diary'); return }
+    // 回忆组：点一级进「记忆收藏室」总览
+    if (n.key === 'g-memory') { switchView('memories'); return }
     switchView(lastChild[n.key] || n.children[0].key)
     return
   }

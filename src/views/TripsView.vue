@@ -51,7 +51,7 @@
         <span class="pn-hint">分类：</span>
         <span v-for="c in PLACE_CATS" :key="c" class="chip" :class="{ sel: openStamp.cat === c }" @click="setPlaceCat(openStamp.name, c)">{{ c }}</span>
       </div>
-      <div v-for="t in openStamp.trips" :key="t.id" class="trip-row">
+      <div v-for="t in openStamp.trips" :key="t.id" class="trip-row trip-click" title="回到那天的日记" @click="openDay(t.date)">
         <span class="wk-date">{{ t.date }}</span>
         <div class="trip-body">
           <div class="trip-title">
@@ -135,9 +135,11 @@
 </template>
 
 <script setup>
+const emit = defineEmits(['go'])
 import { ta, her } from '../store.js'
 import { ref, reactive, computed } from 'vue'
 import Icon from '../components/Icon.vue'
+import { diaryDate } from '../store.js'
 import { store, addTrip, removeTrip, topPlaces, todayStr, PLACE_CATS, placeCatOf, setPlaceCat } from '../store.js'
 import { termOf } from '../utils/solarTerms.js'
 import { compressImage } from '../utils/image.js'
@@ -237,9 +239,16 @@ function save() {
 function remove(t) {
   if (confirm(`删掉 ${t.date} 去「${t.place}」这条记录？（照片仍留在相册）`)) removeTrip(t.id)
 }
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
 </script>
 
 <style scoped>
+.trip-click { cursor: pointer; }
+.trip-click:hover { background: rgba(240, 147, 75, .06); }
+
 .top-name { font-size: 16px !important; line-height: 29px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 分类色：公园 / 商场 / 亲戚家 / 早教 / 医院 / 旅行 / 其他 */

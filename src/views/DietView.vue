@@ -139,9 +139,10 @@
           <span class="more">{{ store.meals.length }} 条</span>
         </div>
         <div v-for="g in groupedMeals.slice(0, dayLimit)" :key="g.date" class="meal-day">
-          <div class="meal-date">
+          <div class="meal-date meal-click" title="回到那天的日记" @click="openDay(g.date)">
             {{ g.date }}<span v-if="g.date === today" class="badge badge-ok">今天</span>
             <RainbowPlate :groups="g.groups" :size="18" style="display:inline-block;vertical-align:-4px;margin-left:6px" />
+            <span class="meal-go">看那天 →</span>
           </div>
           <div v-for="m in g.list" :key="m.id" class="tl-item">
             <span class="badge" :class="m.firstTaste ? 'badge-warn' : 'badge-ok'">{{ m.meal || '一餐' }}</span>
@@ -182,7 +183,8 @@
 </template>
 
 <script setup>
-import { ta, her } from '../store.js'
+const emit = defineEmits(['go'])
+import { ta, her, diaryDate } from '../store.js'
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
 import RainbowPlate from '../components/RainbowPlate.vue'
@@ -330,9 +332,18 @@ const groupedMeals = computed(() => {
     .sort((a, b) => b[0].localeCompare(a[0]))
     .map(([date, list]) => ({ date, list, groups: dayFoodGroups(date) }))
 })
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
 </script>
 
 <style scoped>
+.meal-click { cursor: pointer; }
+.meal-click:hover { color: var(--brand-deep); }
+.meal-go { font-size: 12px; color: var(--brand-deep); margin-left: 8px; opacity: 0; transition: opacity .15s; }
+.meal-click:hover .meal-go { opacity: 1; }
+
 .stat-box .num small { font-size: 13px; color: var(--ink-3); font-weight: 400; }
 .stat-box.warn .num { color: #d0463c; }
 

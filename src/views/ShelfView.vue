@@ -208,7 +208,7 @@
     <div class="card-title">
       <span class="ct-left"><Icon name="clock" :size="16" />最近阅读</span>
     </div>
-    <div v-for="r in recentReads" :key="r.key" class="tl-item">
+    <div v-for="r in recentReads" :key="r.key" class="tl-item tl-click" title="回到那天的日记" @click="openDay(r.time.slice(0, 10))">
       <span class="tl-time">{{ r.time.slice(5, 10) }}</span>
       <span class="tl-icon"><Icon name="book-open" :size="18" /></span>
       <div class="tl-body">
@@ -229,7 +229,14 @@ import { compressImage } from '../utils/image.js'
 import { ocrRecognize } from '../utils/ocr.js'
 import { genPinyin } from '../utils/pinyin.js'
 
-defineEmits(['open'])
+const emit = defineEmits(['open', 'go'])
+import { diaryDate } from '../store.js'
+
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
+
 
 const newTitle = ref('')
 const newAuthor = ref('')
@@ -481,6 +488,9 @@ function onShelfDrop(e) {
 </script>
 
 <style scoped>
+.tl-click { cursor: pointer; }
+.tl-click:hover { background: rgba(240, 147, 75, .06); }
+
 .add-card .inline-add input, .add-card .inline-add select {
   border-color: rgba(240, 147, 75, .4); background: #fffdf9;
   box-shadow: 0 1px 4px rgba(240, 147, 75, .08);

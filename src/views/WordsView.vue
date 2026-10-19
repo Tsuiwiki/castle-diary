@@ -128,7 +128,7 @@
           <td><input class="wt-input" :value="w.pinyin" placeholder="—" @change="e => editWord(w, 'pinyin', e.target.value)" /></td>
           <td><input class="wt-input" :value="w.meaning" placeholder="—" @change="e => editWord(w, 'meaning', e.target.value)" /></td>
           <td>{{ w.sourceBook ? '《' + w.sourceBook + '》' : '随手记' }}</td>
-          <td>{{ w.date }}</td>
+          <td><a class="wdate-link" title="回到那天的日记" @click="openDay(w.date)">{{ w.date }}</a></td>
           <td><span class="wt-state" :class="{ on: w.mastered }" @click="toggleMastered(w)">{{ w.mastered ? '已掌握' : '学习中' }}</span></td>
           <td><button class="wdel" style="position:static;opacity:1" @click="delWord(w)">×</button></td>
         </tr>
@@ -164,11 +164,13 @@
 </template>
 
 <script setup>
+const emit = defineEmits(['go'])
 import { ta, her } from '../store.js'
 import { ref, computed, reactive, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import WordCardSheet from '../components/WordCardSheet.vue'
 import PicQuizSheet from '../components/PicQuizSheet.vue'
+import { diaryDate } from '../store.js'
 import { store, addWord, removeWord, setWordMastered, updateWord, setWordImage, WORD_KINDS } from '../store.js'
 import { compressImage } from '../utils/image.js'
 import { genPinyin } from '../utils/pinyin.js'
@@ -269,9 +271,15 @@ function delWord(w) {
 function toggleMastered(w) {
   setWordMastered(w.id, !w.mastered)
 }
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
 </script>
 
 <style scoped>
+.wdate-link { color: var(--brand-deep); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
 .kind-tip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; line-height: 1.6; border: 1px solid rgba(240, 147, 75, .45); background: #fff7ee; }
 .kind-tip > svg { color: var(--brand-deep); flex: none; }
 .kind-tip > span { flex: 1; min-width: 260px; }

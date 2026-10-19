@@ -123,7 +123,7 @@
 
             <!-- 进步线：新的在上 -->
             <div v-if="g.plays.length" class="g-line">
-              <div v-for="p in shownPlays(g)" :key="p.id" class="gl-item" :class="{ first: p.first }">
+              <div v-for="p in shownPlays(g)" :key="p.id" class="gl-item gl-click" :class="{ first: p.first }" title="回到那天的日记" @click="openDay(p.date)">
                 <span class="gl-date">{{ p.date.slice(5) }}</span>
                 <span class="gl-dot"></span>
                 <span class="gl-text">{{ p.note || '玩了一次' }}<span v-if="p.first" class="gl-stamp">第一次</span></span>
@@ -163,7 +163,8 @@
 </template>
 
 <script setup>
-import { ta, her } from '../store.js'
+const emit = defineEmits(['go'])
+import { ta, her, diaryDate } from '../store.js'
 import { ref, reactive, computed, nextTick } from 'vue'
 import Icon from '../components/Icon.vue'
 import {
@@ -335,9 +336,16 @@ function delPlay(g, p) {
   if (!confirm(`删掉 ${p.date} 这次「${g.name}」的记录？`)) return
   removePlay(g.id, p.id)
 }
+function openDay(date) {
+  diaryDate.value = date
+  emit('go', 'diary')
+}
 </script>
 
 <style scoped>
+.gl-click { cursor: pointer; }
+.gl-click:hover { background: rgba(240, 147, 75, .08); border-radius: 8px; }
+
 .g-top-name { font-size: 16px !important; line-height: 29px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pick-card { border: 1px dashed rgba(155, 143, 208, .6); }
 .pick-empty { font-size: 13px; color: var(--ink-2); }
