@@ -50,6 +50,7 @@ function buildSeed() {
     photos: [],
     trips: [],
     diaries: [],
+    dayStates: [],
     games: [],
     foods: [],
     places: [],
@@ -75,6 +76,7 @@ export const store = reactive({
   photos: [],
   trips: [],
   diaries: [],
+  dayStates: [],   // 日期级状态卡：[{ id, date, mood }]（v0.39；单条日记不再携带当天心情）
   games: [],
   foods: [],
   places: [],
@@ -157,6 +159,7 @@ export function persistNow() {
       photos: store.photos,
       trips: store.trips,
       diaries: store.diaries,
+      dayStates: store.dayStates,
       games: store.games,
       foods: store.foods,
       places: store.places,
@@ -196,7 +199,8 @@ function applyState(s) {
   store.milestones = s.milestones || []
   store.photos = s.photos || []
   store.trips = s.trips || []
-  store.diaries = s.diaries || []
+  store.diaries = (s.diaries || []).map(d => ({ mood: '', by: '', ...d })) // 老条目补 mood/by 空值，避免模板裸访问
+  store.dayStates = s.dayStates || []
   store.games = (s.games || []).map(g => ({ plays: [], tags: [], ...g }))
   store.foods = s.foods || []
   store.places = s.places || []
@@ -1133,14 +1137,44 @@ export const MOODS = [
 ]
 
 export function getDiary(date) {
-  return store.diaries.find(d => d.date === date) || null
+  // 兼容旧调用：一天可能有多篇时返回最早的一篇（时间线第一张文本卡）
+  return getDiaries(date)[0] || null
 }
 
+// v0.39：一天可多篇。按创建时间升序，旧条目（无 createdAt）按 updatedAt 回退
+export function getDiaries(date) {
+  return store.diaries
+    .filter(d => d.date === date)
+    .sort((a, b) => (a.createdAt || a.updatedAt || '').localeCompare(b.createdAt || b.updatedAt || ''))
+}
+
+export function addDiary({ date, text = '', by = '' }) {
+  const d = { id: uid(), date, text, by, createdAt: nowLocal(), updatedAt: nowLocal() }
+  store.diaries.unshift(d)
+  saveLocal()
+  return d
+}
+
+export function updateDiary(id, fields) {
+  const d = store.diaries.find(x => x.id === id)
+  if (!d) return
+  Object.assign(d, fields, { updatedAt: nowLocal() })
+  saveLocal()
+}
+
+// 只删这一篇文本记录；贴纸记录（吃了/她说/玩了…）是当天的独立记录，不受影响
+export function removeDiary(id) {
+  const i = store.diaries.findIndex(x => x.id === id)
+  if (i >= 0) { store.diaries.splice(i, 1); saveLocal() }
+}
+
+// 旧入口保留（月龄卡等仍有调用）：写到当天最新一篇；当天没有就建一篇
 // 局部更新当天日记（没有就新建）；mood / text / by 任意组合
 export function saveDiary(date, fields) {
-  let d = getDiary(date)
+  const list = getDiaries(date)
+  let d = list[list.length - 1]
   if (!d) {
-    d = { id: uid(), date, mood: '', text: '', by: '' }
+    d = { id: uid(), date, mood: '', text: '', by: '', createdAt: nowLocal() }
     store.diaries.unshift(d)
   }
   for (const k of ['mood', 'text', 'by']) {
@@ -1149,6 +1183,23 @@ export function saveDiary(date, fields) {
   d.updatedAt = nowLocal()
   saveLocal()
   return d
+}
+
+// ---------- 日期级状态卡（v0.39）：当天心情从日记条目拆出来 ----------
+export function getDayState(date) {
+  const st = store.dayStates.find(x => x.date === date)
+  if (st?.mood) return st.mood
+  // 旧数据回退：该日日记条目上遗留的 mood
+  const d = getDiaries(date).find(x => x.mood)
+  return d?.mood || ''
+}
+
+export function setDayMood(date, mood) {
+  const i = store.dayStates.findIndex(x => x.date === date)
+  if (!mood) { if (i >= 0) { store.dayStates.splice(i, 1); saveLocal() } return }
+  if (i >= 0) store.dayStates[i].mood = mood
+  else store.dayStates.unshift({ id: uid(), date, mood })
+  saveLocal()
 }
 
 // 年龄文本：1 岁 8 个月零 7 天 / 8 个月整；onDate 早于生日返回空
@@ -1393,6 +1444,7 @@ export async function buildBackup() {
     photos: store.photos.map(({ imageUrl, ...p }) => p),
     trips: store.trips,
     diaries: store.diaries,
+    dayStates: store.dayStates,
     games: store.games.map(({ imageUrl, ...g }) => g),
     foods: store.foods,
     places: store.places,
