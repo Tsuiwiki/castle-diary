@@ -168,6 +168,10 @@ import AppLockOverlay from './components/AppLockOverlay.vue'
 // 四季通透背景：复用节气计算，跟随设置（可固定/关闭）
 const seasonKey = ref('autumn')
 const navOpen = ref(false) // 平板端图标栏展开
+// v0.40.1：展开状态残留到手机宽度会把 tabbar 挤坏，宽度回落手机断点时自动收起
+if (typeof matchMedia === 'function') {
+  matchMedia('(max-width: 767px)').addEventListener?.('change', e => { if (e.matches) navOpen.value = false })
+}
 watch(() => store.settings.seasonBg, () => {
   applySeasonTheme(store.settings.seasonBg || 'auto', todayStr())
   seasonKey.value = document.body.dataset.seasonBg

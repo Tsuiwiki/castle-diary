@@ -873,6 +873,11 @@ body {
 @media (max-width: 767px) {
   .nav-item .nav-label { display: none; }
   .nav-item .nav-short { display: block; }
+  /* v0.40.1：平板断点的 .expanded 规则会穿透到这里（特异性更高），手机上展开状态残留会把
+     tabbar 挤成左下角竖排（真机 bug），在此同等特异性压制 */
+  .sidebar.expanded { width: 100%; align-items: stretch; }
+  .sidebar.expanded .side-foot, .sidebar.expanded .nav-item .nav-label { display: none; }
+  .sidebar.expanded .nav-item { flex: 1; justify-content: center; width: auto; }
   .subtabs { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px 12px; padding: 0 14px; }
   .subtab { flex: none; }
 }
