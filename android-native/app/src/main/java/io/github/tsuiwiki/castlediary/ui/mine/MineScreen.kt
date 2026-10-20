@@ -42,6 +42,8 @@ fun MineScreen(
     childName: String,
     birthday: String,
     onSaveProfile: (name: String, birthday: String) -> Unit,
+    exportMsg: String? = null,
+    importMsg: String? = null,
     onExport: () -> Unit,
     onImport: () -> Unit,
 ) {
@@ -76,6 +78,8 @@ fun MineScreen(
                     androidx.compose.material3.Button(onClick = onExport, colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = BRAND)) { Text("导出备份") }
                     androidx.compose.material3.OutlinedButton(onClick = onImport) { Text("导入备份") }
                 }
+                if (exportMsg != null) Text(exportMsg, fontSize = 12.sp, color = INK2, modifier = Modifier.padding(top = 6.dp))
+                if (importMsg != null) Text(importMsg, fontSize = 12.sp, color = INK2, modifier = Modifier.padding(top = 6.dp))
             }
         }
         Spacer(Modifier.height(12.dp))
