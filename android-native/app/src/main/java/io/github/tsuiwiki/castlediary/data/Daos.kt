@@ -32,6 +32,9 @@ interface DiaryDao {
     @Query("SELECT * FROM diary_entry WHERE id = :id")
     suspend fun byId(id: String): DiaryEntry?
 
+    @Query("SELECT * FROM diary_entry ORDER BY date DESC")
+    suspend fun observeAllForExport(): List<DiaryEntry>
+
     @Delete
     suspend fun delete(entry: DiaryEntry)
 }
@@ -44,6 +47,9 @@ interface DailySummaryDao {
     @Query("SELECT * FROM daily_summary WHERE date = :date")
     suspend fun byDate(date: String): DailySummary?
 
+    @Query("SELECT * FROM daily_summary ORDER BY date DESC")
+    suspend fun allForExport(): List<DailySummary>
+
     @Upsert
     suspend fun upsert(summary: DailySummary)
 }
@@ -52,6 +58,9 @@ interface DailySummaryDao {
 interface MediaDao {
     @Query("SELECT * FROM media_asset WHERE id = :id")
     suspend fun byId(id: String): MediaAsset?
+
+    @Query("SELECT * FROM media_asset ORDER BY createdAt DESC")
+    suspend fun allForExport(): List<MediaAsset>
 
     @Upsert
     suspend fun upsert(asset: MediaAsset)
@@ -65,6 +74,9 @@ interface MediaDao {
 interface RelationDao {
     @Query("SELECT r.* FROM diary_media_relation r WHERE r.diaryId = :diaryId ORDER BY r.sortOrder")
     fun observeForDiary(diaryId: String): Flow<List<DiaryMediaRelation>>
+
+    @Query("SELECT * FROM diary_media_relation ORDER BY diaryId, sortOrder")
+    suspend fun allForExport(): List<DiaryMediaRelation>
 
     @Upsert
     suspend fun upsert(rel: DiaryMediaRelation)
