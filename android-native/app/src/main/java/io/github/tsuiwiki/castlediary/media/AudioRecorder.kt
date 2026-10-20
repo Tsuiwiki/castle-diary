@@ -9,7 +9,7 @@ import java.io.File
  * 录音（「她说」用）：MediaRecorder 写 m4a；调用方持有 MediaRecorder 权限（RECORD_AUDIO 已声明）。
  * 简单封装：start 返回输出文件，stop 返回文件路径，cancel 清理残留。
  */
-class AudioRecorder(context: Context) {
+class AudioRecorder(private val context: Context) {
     private val outDir = File(context.filesDir, "media/audio").apply { mkdirs() }
     private var recorder: MediaRecorder? = null
     private var outFile: File? = null

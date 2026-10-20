@@ -164,5 +164,11 @@ private fun EntryRow(e: io.github.tsuiwiki.castlediary.data.DiaryEntry) {
 }
 
 private fun kindLabel(kind: String): String = when (kind) {
-    "meal" -> "吃了", "read" -> "读了", "say" -> "她说", "play" -> "玩了", "trip" -> "去了", "photo" -> "照片", else -> "日记"
+    "meal" -> "吃了"
+    "read" -> "读了"
+    "say" -> "她说"
+    "play" -> "玩了"
+    "trip" -> "去了"
+    "photo" -> "照片"
+    else -> "日记"
 }
