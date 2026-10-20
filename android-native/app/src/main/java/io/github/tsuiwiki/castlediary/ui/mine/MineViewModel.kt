@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 /** 我的页 ViewModel：孩子档案（暂存内存）+ v2 导出/导入 */
 class MineViewModel(context: Context) : ViewModel() {
 
-    private val migrator = V2Migrator(context, CastleDatabase.get(context), MediaStore(context))
+    private val migrator = V2Migrator(context, CastleDatabase.get(context), MediaStore(context), io.github.tsuiwiki.castlediary.data.ProfileStore(context))
 
     private val _exportResult = MutableStateFlow<String?>(null)
     val exportResult: StateFlow<String?> = _exportResult
