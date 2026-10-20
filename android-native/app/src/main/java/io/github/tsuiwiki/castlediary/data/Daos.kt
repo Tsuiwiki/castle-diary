@@ -37,6 +37,9 @@ interface DailySummaryDao {
     @Query("SELECT * FROM daily_summary WHERE date = :date")
     fun observe(date: String): Flow<DailySummary?>
 
+    @Query("SELECT * FROM daily_summary WHERE date = :date")
+    suspend fun byDate(date: String): DailySummary?
+
     @Upsert
     suspend fun upsert(summary: DailySummary)
 }
