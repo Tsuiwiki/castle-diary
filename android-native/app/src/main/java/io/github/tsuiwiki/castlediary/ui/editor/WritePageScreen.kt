@@ -43,6 +43,7 @@ private val BG = Color(0xFFFFF9F0)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WritePageScreen(
+    modifier: Modifier = Modifier,
     initialTitle: String = "",
     initialText: String = "",
     onBack: () -> Unit,
@@ -52,6 +53,7 @@ fun WritePageScreen(
     var text by remember { mutableStateOf(initialText) }
 
     Scaffold(
+        modifier = modifier,
         containerColor = BG,
         topBar = {
             TopAppBar(

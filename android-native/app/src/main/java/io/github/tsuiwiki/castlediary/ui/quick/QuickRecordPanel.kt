@@ -39,6 +39,7 @@ private val INK2 = Color(0xFF8A6D4F)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickRecordPanel(
+    modifier: Modifier = Modifier,
     kind: String,
     onCancel: () -> Unit,
     onSave: (kind: String, content: String, note: String) -> Unit,
@@ -55,7 +56,7 @@ fun QuickRecordPanel(
         else -> Triple("记录", "内容", "")
     }
 
-    Card(colors = CardDefaults.cardColors(containerColor = CARD), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = CARD), modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = INK)
             Spacer(Modifier.height(12.dp))

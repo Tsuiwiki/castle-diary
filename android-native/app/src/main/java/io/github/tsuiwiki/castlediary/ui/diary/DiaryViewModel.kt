@@ -16,7 +16,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-/** 日记首页 ViewModel：当前日期 + 当天时间线 + 每日状态 */
+/** 日记/回忆共用 ViewModel：当前日期、当天时间线、每日状态、全部记录（回忆分组用） */
 class DiaryViewModel(db: CastleDatabase) : ViewModel() {
 
     private val diaryDao = db.diaryDao()
@@ -35,6 +35,11 @@ class DiaryViewModel(db: CastleDatabase) : ViewModel() {
     val daySummary: StateFlow<DailySummary?> = _date
         .flatMapLatest { summaryDao.observe(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** 回忆页：全部记录（按月分组在 UI 层做） */
+    val allEntries: StateFlow<List<DiaryEntry>> =
+        diaryDao.observeAll()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun setDate(d: String) { _date.value = d }
     fun shiftDay(n: Int) {

@@ -14,6 +14,10 @@ interface DiaryDao {
     @Query("SELECT * FROM diary_entry WHERE date = :date ORDER BY happenedAt ASC, createdAt ASC")
     fun observeDay(date: String): Flow<List<DiaryEntry>>
 
+    // 全部记录（回忆页用，UI 层分组）
+    @Query("SELECT * FROM diary_entry ORDER BY date DESC, happenedAt ASC")
+    fun observeAll(): Flow<List<DiaryEntry>>
+
     // 回忆页：按月分组用（返回某月全部）
     @Query("SELECT * FROM diary_entry WHERE date LIKE :ymPrefix ORDER BY date DESC, happenedAt ASC")
     fun observeMonth(ymPrefix: String): Flow<List<DiaryEntry>>

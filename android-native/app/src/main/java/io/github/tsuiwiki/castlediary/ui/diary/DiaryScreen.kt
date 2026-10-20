@@ -46,6 +46,7 @@ private val CARD = Color(0xFFFFFDF6)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryScreen(
+    modifier: Modifier = Modifier,
     onWrite: () -> Unit,
     onQuickRecord: (String) -> Unit,
     vm: DiaryViewModel = viewModel(factory = DiaryViewModelFactory),
@@ -54,7 +55,7 @@ fun DiaryScreen(
     val entries by vm.dayEntries.collectAsState()
     val summary by vm.daySummary.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().background(BG)) {
+    Column(modifier = modifier.fillMaxSize().background(BG)) {
         DateHeader(date = date, summaryMood = summary?.mood ?: "", onPrev = { vm.shiftDay(-1) }, onNext = { vm.shiftDay(1) }, onToday = { vm.goToday() }, onMood = { vm.saveMood(it) })
 
         LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
