@@ -23,6 +23,7 @@ class V2Migrator(
     private val context: Context,
     private val db: CastleDatabase,
     private val mediaStore: MediaStore,
+    private val profileStore: io.github.tsuiwiki.castlediary.data.ProfileStore,
 ) {
 
     private val mediaDao = db.mediaDao()
@@ -37,10 +38,12 @@ class V2Migrator(
         root.put("version", 2)
         root.put("exportedAt", nowIso())
 
-        // settings（MVP：孩子档案 + 默认）
+        // settings（孩子档案，从 DataStore 读）
+        val profile = profileStore.current()
         root.put("settings", JSONObject().apply {
-            put("childName", "")
-            put("birthday", "")
+            put("childName", profile.childName)
+            put("birthday", profile.birthday)
+            put("pronoun", profile.pronoun)
         })
 
         // 核心集合：从 Room 重组
@@ -142,6 +145,16 @@ class V2Migrator(
         if (version != 2) throw IllegalArgumentException("不支持的备份版本：$version（当前仅支持 v2）")
 
         val warnings = mutableListOf<String>()
+
+        // 0. 孩子档案（settings → DataStore）
+        val settings = root.optJSONObject("settings")
+        if (settings != null) {
+            profileStore.importFrom(
+                settings.optString("childName"),
+                settings.optString("birthday"),
+                settings.optString("pronoun"),
+            )
+        }
 
         // 1. 日记
         var diariesImported = 0

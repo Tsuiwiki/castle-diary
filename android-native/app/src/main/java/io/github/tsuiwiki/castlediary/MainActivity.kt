@@ -9,9 +9,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -52,8 +52,8 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class Tab(val label: String, val icon: ImageVector) {
-    DIARY("日记", Icons.Filled.Edit),
-    MEMORY("回忆", Icons.Filled.DateRange),
+    DIARY("日记", Icons.Filled.Book),
+    MEMORY("回忆", Icons.Filled.Photo),
     MINE("我的", Icons.Filled.Person),
 }
 
@@ -123,9 +123,6 @@ private fun CastleApp(
                 Tab.MEMORY -> MemoryScreen(modifier = contentModifier, vm = vm, onOpenDay = { date -> tab = Tab.DIARY })
                 Tab.MINE -> MineScreen(
                     modifier = contentModifier,
-                    childName = "",
-                    birthday = "",
-                    onSaveProfile = { _, _ -> },
                     exportMsg = exportMsg,
                     importMsg = importMsg,
                     onExport = {

@@ -3,6 +3,8 @@ package io.github.tsuiwiki.castlediary.ui.diary
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.tsuiwiki.castlediary.data.ageText
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -50,13 +53,29 @@ fun DiaryScreen(
     onWrite: () -> Unit,
     onQuickRecord: (String) -> Unit,
     vm: DiaryViewModel = viewModel(factory = DiaryViewModelFactory),
+    profileVm: io.github.tsuiwiki.castlediary.data.ProfileViewModel = viewModel(factory = io.github.tsuiwiki.castlediary.data.ProfileViewModelFactory),
 ) {
     val date by vm.date.collectAsState()
     val entries by vm.dayEntries.collectAsState()
     val summary by vm.daySummary.collectAsState()
+    val profile by profileVm.profile.collectAsState()
 
     Column(modifier = modifier.fillMaxSize().background(BG)) {
-        DateHeader(date = date, summaryMood = summary?.mood ?: "", onPrev = { vm.shiftDay(-1) }, onNext = { vm.shiftDay(1) }, onToday = { vm.goToday() }, onMood = { vm.saveMood(it) })
+        DateHeader(date = date, childName = profile.childName, birthday = profile.birthday, summaryMood = summary?.mood ?: "", onPrev = { vm.shiftDay(-1) }, onNext = { vm.shiftDay(1) }, onToday = { vm.goToday() }, onMood = { vm.saveMood(it) })
+
+        // 首次引导：没填过档案时提示
+        if (!profile.onboarded) {
+            Card(
+                onClick = { /* MVP：引导去「我的」页填档案（底部导航切换由外层处理，暂提示） */ profileVm.markOnboarded() },
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFDF3E4)),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("👋 欢迎来到城堡日记", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = INK)
+                    Text("到「我的」页填上小名和生日，日记里就会显示孩子的名字和月龄。", fontSize = 12.sp, color = INK2, modifier = Modifier.padding(top = 2.dp))
+                }
+            }
+        }
 
         LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             item {
@@ -95,25 +114,32 @@ fun DiaryScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DateHeader(date: String, summaryMood: String, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onMood: (String) -> Unit) {
+private fun DateHeader(date: String, childName: String, birthday: String, summaryMood: String, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onMood: (String) -> Unit) {
     val d = LocalDate.parse(date)
     val today = LocalDate.now()
     val isToday = d == today
     val weekday = arrayOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[d.dayOfWeek.value - 1]
+    val name = childName.ifBlank { "宝宝" }
+    val age = ageText(birthday, date)
 
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "前一天", tint = INK) }
         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("${d.monthValue} 月 ${d.dayOfMonth} 日 · $weekday${if (isToday) " · 今天" else ""}", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = INK)
-            if (!isToday) Text("回到今天", fontSize = 11.sp, color = BRAND, modifier = Modifier.padding(top = 2.dp).let { it }, fontWeight = FontWeight.Bold)
+            if (age.isNotBlank()) Text("$name · $age", fontSize = 12.sp, color = INK2, modifier = Modifier.padding(top = 2.dp))
         }
         IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "后一天", tint = INK) }
     }
 
-    // 她今天（可选状态）
+    // 她今天（可选状态）：FlowRow 防止小屏换行挤出
     val moods = listOf("开心", "好奇", "黏人", "闹脾气", "犯困")
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         Text("她今天", fontSize = 13.sp, color = INK2, modifier = Modifier.align(Alignment.CenterVertically))
         moods.forEach { m ->
             val on = m == summaryMood
