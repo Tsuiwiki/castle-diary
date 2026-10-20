@@ -47,6 +47,41 @@ class DiaryViewModel(db: CastleDatabase) : ViewModel() {
     }
     fun goToday() { _date.value = LocalDate.now().toString() }
 
+    /** 保存一条日记记录（写一页 or 贴纸），返回新 id */
+    fun saveEntry(
+        date: String,
+        text: String,
+        entryKind: String,
+        title: String = "",
+        payload: String = "",
+        by: String = "",
+    ) {
+        viewModelScope.launch {
+            val id = java.util.UUID.randomUUID().toString()
+            val now = now()
+            diaryDao.upsert(
+                DiaryEntry(
+                    id = id,
+                    date = date,
+                    happenedAt = now,
+                    title = title,
+                    text = text,
+                    by = by,
+                    entryKind = entryKind,
+                    payload = payload,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            )
+        }
+    }
+
+    fun deleteEntry(id: String) {
+        viewModelScope.launch {
+            diaryDao.byId(id)?.let { diaryDao.delete(it) }
+        }
+    }
+
     /** 保存每日心情（其余字段保留原值） */
     fun saveMood(mood: String) {
         viewModelScope.launch {

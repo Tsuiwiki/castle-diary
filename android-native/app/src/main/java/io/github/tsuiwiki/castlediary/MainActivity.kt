@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.tsuiwiki.castlediary.ui.diary.DiaryScreen
+import io.github.tsuiwiki.castlediary.ui.diary.DiaryViewModel
 import io.github.tsuiwiki.castlediary.ui.editor.WritePageScreen
 import io.github.tsuiwiki.castlediary.ui.memory.MemoryScreen
 import io.github.tsuiwiki.castlediary.ui.mine.MineScreen
@@ -53,9 +54,10 @@ private sealed interface Overlay {
 }
 
 @Composable
-private fun CastleApp() {
+private fun CastleApp(vm: DiaryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = io.github.tsuiwiki.castlediary.ui.diary.DiaryViewModelFactory)) {
     var tab by rememberSaveable { mutableStateOf(Tab.DIARY) }
     var overlay by remember { mutableStateOf<Overlay>(Overlay.None) }
+    val currentDate by vm.date.collectAsState()
 
     Scaffold(
         bottomBar = {
@@ -76,10 +78,11 @@ private fun CastleApp() {
             Overlay.None -> when (tab) {
                 Tab.DIARY -> DiaryScreen(
                     modifier = contentModifier,
+                    vm = vm,
                     onWrite = { overlay = Overlay.Write },
                     onQuickRecord = { kind -> overlay = Overlay.Quick(kind) },
                 )
-                Tab.MEMORY -> MemoryScreen(modifier = contentModifier, onOpenDay = { date -> tab = Tab.DIARY })
+                Tab.MEMORY -> MemoryScreen(modifier = contentModifier, vm = vm, onOpenDay = { date -> tab = Tab.DIARY })
                 Tab.MINE -> MineScreen(
                     modifier = contentModifier,
                     childName = "",
@@ -92,13 +95,16 @@ private fun CastleApp() {
             Overlay.Write -> WritePageScreen(
                 modifier = contentModifier,
                 onBack = { overlay = Overlay.None },
-                onSave = { _, _ -> overlay = Overlay.None },
+                onSave = { title, text -> vm.saveEntry(currentDate, text, "free", title); overlay = Overlay.None },
             )
             is Overlay.Quick -> QuickRecordPanel(
                 modifier = contentModifier,
                 kind = o.kind,
                 onCancel = { overlay = Overlay.None },
-                onSave = { _, _, _ -> overlay = Overlay.None },
+                onSave = { kind, content, note ->
+                    vm.saveEntry(currentDate, if (note.isBlank()) content else "$content，$note", kind)
+                    overlay = Overlay.None
+                },
             )
         }
     }
