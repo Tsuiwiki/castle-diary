@@ -156,14 +156,21 @@ private fun DateHeader(date: String, childName: String, birthday: String, summar
 
 @Composable
 private fun QuickRecordGrid(onQuickRecord: (String) -> Unit) {
+    // key 是英文 kind（与 entryKind 一致），label 是中文
     val items = listOf(
-        "吃了" to "🍚", "读了" to "📖", "她说" to "💬", "玩了" to "🧸", "去了" to "🌳", "照片" to "📷",
+        "meal" to ("吃了" to "🍚"),
+        "read" to ("读了" to "📖"),
+        "say" to ("她说" to "💬"),
+        "play" to ("玩了" to "🧸"),
+        "trip" to ("去了" to "🌳"),
+        "photo" to ("照片" to "📷"),
     )
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                row.forEach { (label, emoji) ->
-                    Card(onClick = { onQuickRecord(label) }, colors = CardDefaults.cardColors(containerColor = CARD), modifier = Modifier.weight(1f)) {
+                row.forEach { (kind, pair) ->
+                    val (label, emoji) = pair
+                    Card(onClick = { onQuickRecord(kind) }, colors = CardDefaults.cardColors(containerColor = CARD), modifier = Modifier.weight(1f)) {
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(emoji, fontSize = 24.sp)
                             Spacer(Modifier.height(4.dp))

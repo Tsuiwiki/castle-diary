@@ -82,6 +82,26 @@ class DiaryViewModel(db: CastleDatabase) : ViewModel() {
         }
     }
 
+    /** 照片记录：建一条 photo 条目并返回 id（调用方再建媒体关系） */
+    suspend fun savePhotoEntry(date: String, mediaId: String, happenedAt: String): String {
+        val id = java.util.UUID.randomUUID().toString()
+        diaryDao.upsert(
+            DiaryEntry(
+                id = id,
+                date = date,
+                happenedAt = happenedAt,
+                title = "",
+                text = "记了一张照片",
+                by = "",
+                entryKind = "photo",
+                payload = "{\"mediaId\":\"$mediaId\"}",
+                createdAt = happenedAt,
+                updatedAt = happenedAt,
+            )
+        )
+        return id
+    }
+
     /** 保存每日心情（其余字段保留原值） */
     fun saveMood(mood: String) {
         viewModelScope.launch {

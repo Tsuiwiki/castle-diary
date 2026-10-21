@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
@@ -28,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import io.github.tsuiwiki.castlediary.ui.diary.DiaryScreen
 import io.github.tsuiwiki.castlediary.ui.diary.DiaryViewModel
 import io.github.tsuiwiki.castlediary.ui.diary.DiaryViewModelFactory
@@ -97,6 +99,27 @@ private fun CastleApp(
         }
     }
 
+    // 照片贴纸：Photo Picker → 存媒体 → 建一条 photo 记录
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
+                    val id = java.util.UUID.randomUUID().toString()
+                    val stored = io.github.tsuiwiki.castlediary.media.MediaStore(context).save(id, io.github.tsuiwiki.castlediary.media.MediaStore.Kind.IMAGE, bytes, "image/jpeg")
+                    val now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                    io.github.tsuiwiki.castlediary.data.CastleDatabase.get(context).mediaDao().upsert(
+                        io.github.tsuiwiki.castlediary.data.MediaAsset(id, "image", stored.relativePath, "image/jpeg", stored.sizeBytes, stored.sha256, now)
+                    )
+                    io.github.tsuiwiki.castlediary.data.CastleDatabase.get(context).relationDao().upsert(
+                        io.github.tsuiwiki.castlediary.data.DiaryMediaRelation(vm.savePhotoEntry(currentDate, id, now), id, 0)
+                    )
+                }
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -139,15 +162,26 @@ private fun CastleApp(
                 onBack = { overlay = Overlay.None },
                 onSave = { title, text -> vm.saveEntry(currentDate, text, "free", title); overlay = Overlay.None },
             )
-            is Overlay.Quick -> QuickRecordPanel(
-                modifier = contentModifier,
-                kind = o.kind,
-                onCancel = { overlay = Overlay.None },
-                onSave = { kind, content, note ->
-                    vm.saveEntry(currentDate, if (note.isBlank()) content else "$content，$note", kind)
-                    overlay = Overlay.None
-                },
-            )
+            is Overlay.Quick -> {
+                if (o.kind == "photo") {
+                    // 照片：直接拉起 Photo Picker（不显示表单）
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        photoLauncher.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        overlay = Overlay.None
+                    }
+                } else {
+                    QuickRecordPanel(
+                        modifier = contentModifier,
+                        kind = o.kind,
+                        onCancel = { overlay = Overlay.None },
+                        onSave = { q ->
+                            val text = if (q.note.isBlank()) q.content else "${q.content}，${q.note}"
+                            vm.saveEntry(currentDate, text, q.kind, payload = q.payload)
+                            overlay = Overlay.None
+                        },
+                    )
+                }
+            }
         }
     }
 }
