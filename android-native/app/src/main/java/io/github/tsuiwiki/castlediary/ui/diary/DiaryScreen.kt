@@ -35,15 +35,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.tsuiwiki.castlediary.data.ageText
+import io.github.tsuiwiki.castlediary.ui.theme.CastleColors
+import io.github.tsuiwiki.castlediary.ui.theme.StickerPalette
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-private val INK = Color(0xFF4A3520)
-private val INK2 = Color(0xFF8A6D4F)
-private val BRAND = Color(0xFFF0934B)
-private val BG = Color(0xFFFFF9F0)
-private val CARD = Color(0xFFFFFDF6)
+// 颜色统一来自 ui.theme.CastleColors（视觉重构 P0），不再本地重复定义
+private val INK = CastleColors.Ink
+private val INK2 = CastleColors.Ink2
+private val BRAND = CastleColors.Brand
+private val BG = CastleColors.Bg
+private val CARD = CastleColors.CardSolid
 
 /** 日记首页：日期头 + 写一页 + 快捷记录 + 当天时间线（MVP M4） */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,7 +70,7 @@ fun DiaryScreen(
         if (!profile.onboarded) {
             Card(
                 onClick = { /* MVP：引导去「我的」页填档案（底部导航切换由外层处理，暂提示） */ profileVm.markOnboarded() },
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFDF3E4)),
+                colors = CardDefaults.cardColors(containerColor = CastleColors.HighlightBg),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -127,7 +130,13 @@ private fun DateHeader(date: String, childName: String, birthday: String, summar
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "前一天", tint = INK) }
         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("${d.monthValue} 月 ${d.dayOfMonth} 日 · $weekday${if (isToday) " · 今天" else ""}", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = INK)
+            Text(
+                "${d.monthValue} 月 ${d.dayOfMonth} 日 · $weekday${if (isToday) " · 今天" else ""}",
+                fontSize = 20.sp,
+                fontFamily = io.github.tsuiwiki.castlediary.ui.theme.KaitiDateFontFamily,
+                fontWeight = FontWeight.Bold,
+                color = INK,
+            )
             if (age.isNotBlank()) Text("$name · $age", fontSize = 12.sp, color = INK2, modifier = Modifier.padding(top = 2.dp))
         }
         IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "后一天", tint = INK) }
@@ -154,31 +163,29 @@ private fun DateHeader(date: String, childName: String, birthday: String, summar
     }
 }
 
+private data class QuickItem(val kind: String, val label: String, val emoji: String, val type: String)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun QuickRecordGrid(onQuickRecord: (String) -> Unit) {
-    // key 是英文 kind（与 entryKind 一致），label 是中文
+    // kind 与 entryKind 一致，type 用于取 7 色贴纸配色（StickerPalette）
     val items = listOf(
-        "meal" to ("吃了" to "🍚"),
-        "read" to ("读了" to "📖"),
-        "say" to ("她说" to "💬"),
-        "play" to ("玩了" to "🧸"),
-        "trip" to ("去了" to "🌳"),
-        "photo" to ("照片" to "📷"),
+        QuickItem("meal", "吃了", "🍚", "food"),
+        QuickItem("read", "读了", "📖", "reading"),
+        QuickItem("say", "她说", "💬", "speech"),
+        QuickItem("play", "玩了", "🧸", "play"),
+        QuickItem("trip", "去了", "🌳", "outing"),
+        QuickItem("photo", "照片", "📷", "photo"),
     )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                row.forEach { (kind, pair) ->
-                    val (label, emoji) = pair
-                    Card(onClick = { onQuickRecord(kind) }, colors = CardDefaults.cardColors(containerColor = CARD), modifier = Modifier.weight(1f)) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(emoji, fontSize = 24.sp)
-                            Spacer(Modifier.height(4.dp))
-                            Text(label, fontSize = 14.sp, color = INK)
-                        }
-                    }
-                }
-            }
+    // 胶囊流式布局（对齐网页版贴纸栏的横向气质），自动换行，不再是 3x2 网格方块
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.forEach { item ->
+            io.github.tsuiwiki.castlediary.ui.theme.StickerChip(
+                emoji = item.emoji,
+                label = item.label,
+                color = StickerPalette.of(item.type),
+                onClick = { onQuickRecord(item.kind) },
+            )
         }
     }
 }
@@ -198,15 +205,13 @@ private fun EntryRow(e: io.github.tsuiwiki.castlediary.data.DiaryEntry) {
             if (e.text.isNotBlank()) {
                 Text(e.text, fontSize = 14.sp, color = INK, maxLines = 3, modifier = Modifier.padding(top = 2.dp))
             }
-            // 记录块标签
+            // 记录块标签：按类型应用 7 色贴纸配色（StickerPalette），不再统一橙色
             if (blocks.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
                     blocks.forEach { b ->
-                        Text(
-                            "【${b.title}】",
-                            fontSize = 11.sp,
-                            color = Color(0xFF8A4F1F),
-                            modifier = Modifier.background(Color(0xFFFDF3E4), MaterialTheme.shapes.small).padding(horizontal = 6.dp, vertical = 2.dp),
+                        io.github.tsuiwiki.castlediary.ui.theme.StickerLabel(
+                            text = "【${b.title}】",
+                            color = StickerPalette.of(b.type),
                         )
                     }
                 }

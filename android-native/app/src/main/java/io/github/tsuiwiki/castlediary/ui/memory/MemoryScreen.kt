@@ -32,12 +32,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.tsuiwiki.castlediary.data.DiaryEntry
 import io.github.tsuiwiki.castlediary.ui.diary.DiaryViewModelFactory
+import io.github.tsuiwiki.castlediary.ui.theme.CastleColors
 
-private val INK = Color(0xFF4A3520)
-private val INK2 = Color(0xFF8A6D4F)
-private val BRAND = Color(0xFFF0934B)
-private val BG = Color(0xFFFFF9F0)
-private val CARD = Color(0xFFFFFDF6)
+// 颜色统一来自 ui.theme.CastleColors（视觉重构 P0），不再本地重复定义
+private val INK = CastleColors.Ink
+private val INK2 = CastleColors.Ink2
+private val BRAND = CastleColors.Brand
+private val BG = CastleColors.Bg
+private val CARD = CastleColors.CardSolid
 
 /**
  * 回忆页（M7）：按月分组浏览历史 + 简单搜索 + 主题筛选。

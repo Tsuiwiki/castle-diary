@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +46,8 @@ import io.github.tsuiwiki.castlediary.ui.mine.MineScreen
 import io.github.tsuiwiki.castlediary.ui.mine.MineViewModel
 import io.github.tsuiwiki.castlediary.ui.mine.MineViewModelFactory
 import io.github.tsuiwiki.castlediary.ui.quick.QuickRecordPanel
+import io.github.tsuiwiki.castlediary.ui.theme.CastleColors
+import io.github.tsuiwiki.castlediary.ui.theme.CastleDiaryTheme
 
 /**
  * 城堡日记 Android 原生版 · MVP
@@ -55,7 +58,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { CastleApp() }
+        setContent { CastleDiaryTheme { CastleApp() } }
     }
 }
 
@@ -138,13 +141,20 @@ private fun CastleApp(
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = CastleColors.CardSolid) {
                 Tab.entries.forEach { t ->
                     NavigationBarItem(
                         selected = tab == t,
                         onClick = { tab = t; overlay = Overlay.None },
                         icon = { Icon(t.icon, contentDescription = t.label) },
                         label = { Text(t.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = CastleColors.Brand,
+                            selectedTextColor = CastleColors.Brand,
+                            indicatorColor = CastleColors.BrandSoft,
+                            unselectedIconColor = CastleColors.Ink2,
+                            unselectedTextColor = CastleColors.Ink2,
+                        ),
                     )
                 }
             }

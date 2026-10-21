@@ -31,12 +31,15 @@ import io.github.tsuiwiki.castlediary.data.payloadToBlocks
 import io.github.tsuiwiki.castlediary.data.typeLabel
 import io.github.tsuiwiki.castlediary.ui.diary.DiaryViewModel
 import io.github.tsuiwiki.castlediary.ui.diary.DiaryViewModelFactory
+import io.github.tsuiwiki.castlediary.ui.theme.CastleColors
+import io.github.tsuiwiki.castlediary.ui.theme.StickerPalette
 
-private val INK = Color(0xFF4A3520)
-private val INK2 = Color(0xFF8A6D4F)
-private val BRAND = Color(0xFFF0934B)
-private val BG = Color(0xFFFFF9F0)
-private val CARD = Color(0xFFFFFDF6)
+// 颜色统一来自 ui.theme.CastleColors（视觉重构 P0），不再本地重复定义
+private val INK = CastleColors.Ink
+private val INK2 = CastleColors.Ink2
+private val BRAND = CastleColors.Brand
+private val BG = CastleColors.Bg
+private val CARD = CastleColors.CardSolid
 
 /**
  * 分册视图（P1）：按 type 从日记的 payload 记录块 + entryKind 提取归档。
@@ -89,7 +92,7 @@ private fun ItemRow(entry: DiaryEntry, block: RecordBlock, date: String, onOpenD
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("【${block.title.ifBlank { typeLabel(block.type) }}】", fontSize = 12.sp, color = Color(0xFF8A4F1F), fontWeight = FontWeight.Bold)
+                Text("【${block.title.ifBlank { typeLabel(block.type) }}】", fontSize = 12.sp, color = StickerPalette.of(block.type).fg, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 Text(date, fontSize = 11.sp, color = INK2)
             }

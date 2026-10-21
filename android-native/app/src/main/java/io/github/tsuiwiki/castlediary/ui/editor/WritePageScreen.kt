@@ -41,13 +41,15 @@ import androidx.compose.ui.unit.sp
 import io.github.tsuiwiki.castlediary.data.RecordBlock
 import io.github.tsuiwiki.castlediary.data.blocksToPayload
 import io.github.tsuiwiki.castlediary.data.payloadToBlocks
+import io.github.tsuiwiki.castlediary.ui.theme.CastleColors
+import io.github.tsuiwiki.castlediary.ui.theme.StickerPalette
 import kotlinx.coroutines.delay
 
-private val BRAND = Color(0xFFF0934B)
-private val INK = Color(0xFF4A3520)
-private val INK2 = Color(0xFF8A6D4F)
-private val BG = Color(0xFFFFF9F0)
-private val BLOCK_BG = Color(0xFFFDF3E4)
+// 颜色统一来自 ui.theme.CastleColors（视觉重构 P0），不再本地重复定义
+private val BRAND = CastleColors.Brand
+private val INK = CastleColors.Ink
+private val INK2 = CastleColors.Ink2
+private val BG = CastleColors.Bg
 
 /** 保存结果：正文 + 记录块（合并进一篇日记） */
 data class WriteResult(val title: String, val text: String, val blocks: List<RecordBlock>)
@@ -206,14 +208,15 @@ private fun SubOptions(tag: String, onPick: (String, String, String) -> Unit) {
     }
 }
 
-/** 已插入的记录块（可编辑字段 + 可删除） */
+/** 已插入的记录块（可编辑字段 + 可删除），按 type 应用 7 色贴纸配色区分类型 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RecordBlockCard(block: RecordBlock, onChange: (RecordBlock) -> Unit, onDelete: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = BLOCK_BG), modifier = Modifier.fillMaxWidth()) {
+    val palette = StickerPalette.of(block.type)
+    Card(colors = CardDefaults.cardColors(containerColor = palette.bg), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text("【${block.title}】", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF8A4F1F))
+                Text("【${block.title}】", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = palette.fg)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onDelete) { Text("删除", fontSize = 12.sp, color = INK2) }
             }

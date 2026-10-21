@@ -27,12 +27,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.tsuiwiki.castlediary.ui.theme.CastleColors
+import io.github.tsuiwiki.castlediary.ui.theme.StickerPalette
 import org.json.JSONObject
 
-private val BRAND = Color(0xFFF0934B)
-private val CARD = Color(0xFFFFFDF6)
-private val INK = Color(0xFF4A3520)
-private val INK2 = Color(0xFF8A6D4F)
+// 颜色统一来自 ui.theme.CastleColors（视觉重构 P0），不再本地重复定义
+private val BRAND = CastleColors.Brand
+private val CARD = CastleColors.CardSolid
+private val INK = CastleColors.Ink
+private val INK2 = CastleColors.Ink2
 
 data class QuickSave(val kind: String, val content: String, val note: String, val payload: String)
 
@@ -81,8 +84,8 @@ fun QuickRecordPanel(
                             onClick = { meal = m },
                             label = { Text(m, fontSize = 13.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BRAND.copy(alpha = 0.18f),
-                                selectedLabelColor = Color(0xFF8A4F1F),
+                                selectedContainerColor = StickerPalette.Food.bg,
+                                selectedLabelColor = StickerPalette.Food.fg,
                             ),
                         )
                     }
