@@ -8,9 +8,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.Icon
@@ -56,8 +60,17 @@ class MainActivity : ComponentActivity() {
 private enum class Tab(val label: String, val icon: ImageVector) {
     DIARY("日记", Icons.Filled.Book),
     MEMORY("回忆", Icons.Filled.Photo),
+    COLLECTIONS("分册", Icons.Filled.GridView),
     MINE("我的", Icons.Filled.Person),
 }
+
+// 分册子页（饮食/书房/语言/游戏）
+private val collectionTabs = listOf(
+    "food" to "饮食",
+    "reading" to "书房",
+    "speech" to "语言",
+    "play" to "游戏",
+)
 
 private sealed interface Overlay {
     data object None : Overlay
@@ -71,6 +84,7 @@ private fun CastleApp(
     mineVm: MineViewModel = viewModel(factory = MineViewModelFactory),
 ) {
     var tab by rememberSaveable { mutableStateOf(Tab.DIARY) }
+    var collectionSub by rememberSaveable { mutableStateOf("food") }
     var overlay by remember { mutableStateOf<Overlay>(Overlay.None) }
     val currentDate by vm.date.collectAsState()
     val exportMsg by mineVm.exportResult.collectAsState()
@@ -144,6 +158,27 @@ private fun CastleApp(
                     onQuickRecord = { kind -> overlay = Overlay.Quick(kind) },
                 )
                 Tab.MEMORY -> MemoryScreen(modifier = contentModifier, vm = vm, onOpenDay = { date -> tab = Tab.DIARY })
+                Tab.COLLECTIONS -> {
+                    Column(modifier = contentModifier) {
+                        // 子 tab
+                        androidx.compose.foundation.layout.Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 0.dp),
+                        ) {
+                            collectionTabs.forEach { (key, label) ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = collectionSub == key,
+                                    onClick = { collectionSub = key },
+                                    label = { Text(label, fontSize = 13.sp) },
+                                )
+                            }
+                        }
+                        io.github.tsuiwiki.castlediary.ui.collection.CollectionScreen(
+                            type = collectionSub,
+                            onOpenDay = { date -> tab = Tab.DIARY },
+                        )
+                    }
+                }
                 Tab.MINE -> MineScreen(
                     modifier = contentModifier,
                     exportMsg = exportMsg,
