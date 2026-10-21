@@ -132,10 +132,12 @@ private fun DateHeader(date: String, childName: String, birthday: String, summar
         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 "${d.monthValue} 月 ${d.dayOfMonth} 日 · $weekday${if (isToday) " · 今天" else ""}",
-                fontSize = 20.sp,
+                fontSize = 17.sp,
                 fontFamily = io.github.tsuiwiki.castlediary.ui.theme.KaitiDateFontFamily,
                 fontWeight = FontWeight.Bold,
                 color = INK,
+                maxLines = 1,
+                softWrap = false,
             )
             if (age.isNotBlank()) Text("$name · $age", fontSize = 12.sp, color = INK2, modifier = Modifier.padding(top = 2.dp))
         }
