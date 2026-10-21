@@ -185,14 +185,32 @@ private fun QuickRecordGrid(onQuickRecord: (String) -> Unit) {
 
 @Composable
 private fun EntryRow(e: io.github.tsuiwiki.castlediary.data.DiaryEntry) {
+    val blocks = io.github.tsuiwiki.castlediary.data.payloadToBlocks(e.payload)
     Card(colors = CardDefaults.cardColors(containerColor = CARD), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(e.happenedAt?.takeLast(5) ?: "", fontSize = 12.sp, color = INK2, modifier = Modifier.width(44.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(e.title?.takeIf { it.isNotBlank() } ?: e.text.take(40), fontSize = 15.sp, color = INK)
-                if (e.title?.isNotBlank() == true && e.text.isNotBlank()) Text(e.text.take(60), fontSize = 13.sp, color = INK2, maxLines = 2)
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(e.happenedAt?.takeLast(5) ?: "", fontSize = 12.sp, color = INK2, modifier = Modifier.width(44.dp))
+                Text(kindLabel(e.entryKind), fontSize = 12.sp, color = BRAND, fontWeight = FontWeight.Bold)
             }
-            Text(kindLabel(e.entryKind), fontSize = 12.sp, color = BRAND, fontWeight = FontWeight.Bold)
+            if (e.title?.isNotBlank() == true) {
+                Text(e.title!!, fontSize = 15.sp, color = INK, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+            }
+            if (e.text.isNotBlank()) {
+                Text(e.text, fontSize = 14.sp, color = INK, maxLines = 3, modifier = Modifier.padding(top = 2.dp))
+            }
+            // 记录块标签
+            if (blocks.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    blocks.forEach { b ->
+                        Text(
+                            "【${b.title}】",
+                            fontSize = 11.sp,
+                            color = Color(0xFF8A4F1F),
+                            modifier = Modifier.background(Color(0xFFFDF3E4), MaterialTheme.shapes.small).padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }

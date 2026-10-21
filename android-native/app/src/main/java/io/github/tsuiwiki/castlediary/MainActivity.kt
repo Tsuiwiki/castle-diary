@@ -160,7 +160,10 @@ private fun CastleApp(
             Overlay.Write -> WritePageScreen(
                 modifier = contentModifier,
                 onBack = { overlay = Overlay.None },
-                onSave = { title, text -> vm.saveEntry(currentDate, text, "free", title); overlay = Overlay.None },
+                onSave = { result ->
+                    vm.savePage(currentDate, result.title, result.text, result.blocks)
+                    overlay = Overlay.None
+                },
             )
             is Overlay.Quick -> {
                 if (o.kind == "photo") {

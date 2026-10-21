@@ -76,6 +76,28 @@ class DiaryViewModel(db: CastleDatabase) : ViewModel() {
         }
     }
 
+    /** 保存一篇日记（正文 + 记录块合并，payload 存块数组） */
+    fun savePage(date: String, title: String, text: String, blocks: List<io.github.tsuiwiki.castlediary.data.RecordBlock>) {
+        viewModelScope.launch {
+            val id = java.util.UUID.randomUUID().toString()
+            val now = now()
+            diaryDao.upsert(
+                DiaryEntry(
+                    id = id,
+                    date = date,
+                    happenedAt = now,
+                    title = title,
+                    text = text,
+                    by = "",
+                    entryKind = "free",
+                    payload = io.github.tsuiwiki.castlediary.data.blocksToPayload(blocks),
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            )
+        }
+    }
+
     fun deleteEntry(id: String) {
         viewModelScope.launch {
             diaryDao.byId(id)?.let { diaryDao.delete(it) }
