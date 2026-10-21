@@ -72,7 +72,7 @@ fun CollectionScreen(
             Text("还没有「$label」记录。写日记时点「$label」加一条，就会自动收进这里。", fontSize = 13.sp, color = INK2, modifier = Modifier.padding(vertical = 20.dp))
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(items, key = { _, b, d -> (d) + (b.title) + (b.content.take(8)) }) { (entry, block, date) ->
+                items(items, key = { it.third + it.second.title + it.second.content.take(8) }) { (entry, block, date) ->
                     ItemRow(entry, block, date, onOpenDay)
                 }
             }
