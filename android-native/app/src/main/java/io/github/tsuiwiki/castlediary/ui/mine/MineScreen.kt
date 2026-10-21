@@ -59,7 +59,7 @@ fun MineScreen(
     var birth by remember(profile.birthday) { mutableStateOf(profile.birthday) }
 
     Column(modifier = modifier.fillMaxSize().background(BG).padding(16.dp)) {
-        Text("我的", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = INK)
+        Text("我的", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = INK)
         Spacer(Modifier.height(12.dp))
 
         Card(colors = CardDefaults.cardColors(containerColor = CARD), modifier = Modifier.fillMaxWidth()) {

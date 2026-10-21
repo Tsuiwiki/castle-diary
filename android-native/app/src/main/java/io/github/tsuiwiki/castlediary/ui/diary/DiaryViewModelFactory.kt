@@ -11,6 +11,6 @@ import io.github.tsuiwiki.castlediary.data.CastleDatabase
 val DiaryViewModelFactory = viewModelFactory {
     initializer {
         val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]!!
-        DiaryViewModel(CastleDatabase.get(app))
+        DiaryViewModel(CastleDatabase.get(app), app)
     }
 }

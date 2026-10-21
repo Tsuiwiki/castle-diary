@@ -71,7 +71,7 @@ fun QuickRecordPanel(
 
     Card(colors = CardDefaults.cardColors(containerColor = CARD), modifier = modifier.fillMaxWidth().padding(16.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(t.title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = INK)
+            Text(t.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = INK)
             if (t.hint.isNotBlank()) Text(t.hint, fontSize = 12.sp, color = INK2, modifier = Modifier.padding(top = 2.dp))
             Spacer(Modifier.height(12.dp))
 

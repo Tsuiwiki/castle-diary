@@ -45,14 +45,14 @@ fun StickerChip(
                 if (selected) Modifier.border(1.5.dp, color.fg, ChipShape) else Modifier
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (emoji.isNotEmpty()) {
-            androidx.compose.material3.Text(emoji, fontSize = 16.sp)
-            Spacer(Modifier.width(6.dp))
+            androidx.compose.material3.Text(emoji, fontSize = 14.sp)
+            Spacer(Modifier.width(5.dp))
         }
-        androidx.compose.material3.Text(label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = color.fg)
+        androidx.compose.material3.Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color.fg)
     }
 }
 
@@ -70,6 +70,6 @@ fun StickerLabel(text: String, color: StickerColor, modifier: Modifier = Modifie
         modifier = modifier
             .clip(ChipShape)
             .background(color.bg)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 7.dp, vertical = 3.dp),
     )
 }

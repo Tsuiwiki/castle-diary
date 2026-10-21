@@ -83,15 +83,15 @@ fun DiaryScreen(
         LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             item {
                 Spacer(Modifier.height(8.dp))
-                Text("今天发生了什么？", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = INK)
+                Text("今天发生了什么？", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = INK)
                 Text("写下今天的故事，或者先记下一件小事。", fontSize = 13.sp, color = INK2, modifier = Modifier.padding(top = 4.dp))
                 Spacer(Modifier.height(12.dp))
 
                 Card(onClick = onWrite, colors = CardDefaults.cardColors(containerColor = BRAND), modifier = Modifier.fillMaxWidth()) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                        Text("＋", fontSize = 22.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(8.dp))
-                        Text("写一页", fontSize = 17.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 13.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Text("＋", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(6.dp))
+                        Text("写一页", fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -109,7 +109,7 @@ fun DiaryScreen(
                 item { Text("还没有记录，写一页或点上面的贴纸开始。", fontSize = 13.sp, color = INK2, modifier = Modifier.padding(vertical = 20.dp)) }
             } else {
                 items(entries, key = { it.id }) { e ->
-                    EntryRow(e)
+                    EntryRow(e, vm)
                 }
             }
             item { Spacer(Modifier.height(24.dp)) }
@@ -156,10 +156,10 @@ private fun DateHeader(date: String, childName: String, birthday: String, summar
             val on = m == summaryMood
             Text(
                 m,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
                 color = if (on) Color.White else INK2,
-                modifier = Modifier.background(if (on) BRAND else Color.Transparent, MaterialTheme.shapes.small).padding(horizontal = 10.dp, vertical = 5.dp),
+                modifier = Modifier.background(if (on) BRAND else Color.Transparent, MaterialTheme.shapes.small).padding(horizontal = 9.dp, vertical = 4.dp),
             )
         }
     }
@@ -192,20 +192,51 @@ private fun QuickRecordGrid(onQuickRecord: (String) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun EntryRow(e: io.github.tsuiwiki.castlediary.data.DiaryEntry) {
+private fun EntryRow(e: io.github.tsuiwiki.castlediary.data.DiaryEntry, vm: DiaryViewModel) {
     val blocks = io.github.tsuiwiki.castlediary.data.payloadToBlocks(e.payload)
-    Card(colors = CardDefaults.cardColors(containerColor = CARD), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Column(modifier = Modifier.padding(12.dp)) {
+
+    // photo 记录：加载关联媒体文件，用拍立得卡片渲染（P1-C）
+    val photos by androidx.compose.runtime.produceState<List<java.io.File>>(emptyList(), e.id) {
+        value = if (e.entryKind == "photo") {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.photosForEntry(e.id) }
+        } else emptyList()
+    }
+
+    // 每条记录呈现为一张日记小纸片（纸张质感 P1-B）：暖纸色底+横线纹理+左侧虚线装订边
+    io.github.tsuiwiki.castlediary.ui.components.PaperBackground(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        lineSpacing = 22.dp,
+        bindingX = 12.dp,
+    ) {
+        Column(modifier = Modifier.padding(start = 22.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(e.happenedAt?.takeLast(5) ?: "", fontSize = 12.sp, color = INK2, modifier = Modifier.width(44.dp))
                 Text(kindLabel(e.entryKind), fontSize = 12.sp, color = BRAND, fontWeight = FontWeight.Bold)
             }
             if (e.title?.isNotBlank() == true) {
-                Text(e.title!!, fontSize = 15.sp, color = INK, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                Text(e.title!!, fontSize = 14.sp, color = INK, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
             }
             if (e.text.isNotBlank()) {
-                Text(e.text, fontSize = 14.sp, color = INK, maxLines = 3, modifier = Modifier.padding(top = 2.dp))
+                Text(e.text, fontSize = 13.sp, color = INK, maxLines = 3, modifier = Modifier.padding(top = 2.dp))
+            }
+            // 拍立得照片（白相框+交替倾斜，一张时也可显示配文）
+            if (photos.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(top = 10.dp),
+                ) {
+                    photos.forEachIndexed { idx, file ->
+                        io.github.tsuiwiki.castlediary.ui.components.PolaroidPhoto(
+                            file = file,
+                            caption = e.text,
+                            index = idx,
+                            modifier = Modifier.width(150.dp),
+                        )
+                    }
+                }
             }
             // 记录块标签：按类型应用 7 色贴纸配色（StickerPalette），不再统一橙色
             if (blocks.isNotEmpty()) {

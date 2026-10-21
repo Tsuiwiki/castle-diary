@@ -75,6 +75,10 @@ interface RelationDao {
     @Query("SELECT r.* FROM diary_media_relation r WHERE r.diaryId = :diaryId ORDER BY r.sortOrder")
     fun observeForDiary(diaryId: String): Flow<List<DiaryMediaRelation>>
 
+    // 一次性查询（拍立得渲染用，不需要订阅流）
+    @Query("SELECT r.* FROM diary_media_relation r WHERE r.diaryId = :diaryId ORDER BY r.sortOrder")
+    suspend fun byDiaryId(diaryId: String): List<DiaryMediaRelation>
+
     @Query("SELECT * FROM diary_media_relation ORDER BY diaryId, sortOrder")
     suspend fun allForExport(): List<DiaryMediaRelation>
 

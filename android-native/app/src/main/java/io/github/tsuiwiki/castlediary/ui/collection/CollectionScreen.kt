@@ -67,7 +67,7 @@ fun CollectionScreen(
     }.sortedByDescending { it.third }
 
     Column(modifier = modifier.fillMaxSize().background(BG).padding(16.dp)) {
-        Text(label + "册", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = INK)
+        Text(label + "册", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = INK)
         Text("这里自动收集日记里「$label」的记录，点一条回到那天。", fontSize = 13.sp, color = INK2, modifier = Modifier.padding(top = 4.dp))
         Spacer(Modifier.height(12.dp))
 
@@ -97,7 +97,7 @@ private fun ItemRow(entry: DiaryEntry, block: RecordBlock, date: String, onOpenD
                 Text(date, fontSize = 11.sp, color = INK2)
             }
             if (block.content.isNotBlank()) {
-                Text(block.content, fontSize = 15.sp, color = INK, modifier = Modifier.padding(top = 4.dp))
+                Text(block.content, fontSize = 14.sp, color = INK, modifier = Modifier.padding(top = 4.dp))
             }
             if (block.note.isNotBlank()) {
                 Text(block.note, fontSize = 13.sp, color = INK2, modifier = Modifier.padding(top = 2.dp))

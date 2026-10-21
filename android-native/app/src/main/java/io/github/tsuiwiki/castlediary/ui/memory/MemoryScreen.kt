@@ -65,7 +65,7 @@ fun MemoryScreen(
     val grouped = filtered.groupBy { it.date.take(7) }.toList().sortedByDescending { it.first }
 
     Column(modifier = modifier.fillMaxSize().background(BG).padding(16.dp)) {
-        Text("回忆", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = INK)
+        Text("回忆", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = INK)
         Text("按日期找回过去的日子。", fontSize = 13.sp, color = INK2, modifier = Modifier.padding(top = 4.dp))
         Spacer(Modifier.height(12.dp))
 
@@ -115,8 +115,8 @@ private fun EntryRow(e: DiaryEntry, onOpenDay: (String) -> Unit) {
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(e.title?.takeIf { it.isNotBlank() } ?: e.text.take(40), fontSize = 15.sp, color = INK)
-                if (e.title?.isNotBlank() == true && e.text.isNotBlank()) Text(e.text.take(60), fontSize = 13.sp, color = INK2, maxLines = 2)
+                Text(e.title?.takeIf { it.isNotBlank() } ?: e.text.take(40), fontSize = 14.sp, color = INK)
+                if (e.title?.isNotBlank() == true && e.text.isNotBlank()) Text(e.text.take(60), fontSize = 12.sp, color = INK2, maxLines = 2)
                 Text(e.date, fontSize = 11.sp, color = INK2, modifier = Modifier.padding(top = 2.dp))
             }
             Text(kindLabel(e.entryKind), fontSize = 12.sp, color = BRAND, fontWeight = FontWeight.Bold)

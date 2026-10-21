@@ -17,10 +17,13 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 /** 日记/回忆共用 ViewModel：当前日期、当天时间线、每日状态、全部记录（回忆分组用） */
-class DiaryViewModel(db: CastleDatabase) : ViewModel() {
+class DiaryViewModel(db: CastleDatabase, context: android.content.Context) : ViewModel() {
 
     private val diaryDao = db.diaryDao()
     private val summaryDao = db.dailySummaryDao()
+    private val relationDao = db.relationDao()
+    private val mediaDao = db.mediaDao()
+    private val mediaStore = io.github.tsuiwiki.castlediary.media.MediaStore(context.applicationContext)
 
     private val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     private val _date = MutableStateFlow(LocalDate.now().toString())
@@ -102,6 +105,14 @@ class DiaryViewModel(db: CastleDatabase) : ViewModel() {
         viewModelScope.launch {
             diaryDao.byId(id)?.let { diaryDao.delete(it) }
         }
+    }
+
+    /** 某条 diary entry 关联的媒体文件（拍立得渲染用），按 sortOrder 排序 */
+    suspend fun photosForEntry(entryId: String): List<java.io.File> {
+        val relations = relationDao.byDiaryId(entryId)
+        return relations.sortedBy { it.sortOrder }.mapNotNull { rel ->
+            mediaDao.byId(rel.mediaId)?.let { mediaStore.resolve(it.relativePath) }
+        }.filter { it.exists() }
     }
 
     /** 照片记录：建一条 photo 条目并返回 id（调用方再建媒体关系） */
