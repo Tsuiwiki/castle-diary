@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -113,7 +114,24 @@ fun DiaryScreen(
             }
 
             if (entries.isEmpty()) {
-                item { Text("还没有记录，写一页或点上面的贴纸开始。", fontSize = 13.sp, color = INK2, modifier = Modifier.padding(vertical = 20.dp)) }
+                // 空状态：城堡插画（P2）+ 引导文案，对齐网页版空态的家底城堡
+                item {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    ) {
+                        io.github.tsuiwiki.castlediary.ui.components.CastleIllustration(
+                            childName = profile.childName,
+                            modifier = Modifier.widthIn(max = 260.dp),
+                        )
+                        Text(
+                            "还没有记录，写一页或点上面的贴纸开始。",
+                            fontSize = 13.sp,
+                            color = INK2,
+                            modifier = Modifier.padding(top = 10.dp),
+                        )
+                    }
+                }
             } else {
                 items(entries, key = { it.id }) { e ->
                     EntryRow(e, vm)
