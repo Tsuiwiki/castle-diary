@@ -2,6 +2,7 @@ package io.github.tsuiwiki.castlediary.migration
 
 import android.content.Context
 import io.github.tsuiwiki.castlediary.data.CastleDatabase
+import io.github.tsuiwiki.castlediary.data.DiaryEntry
 import io.github.tsuiwiki.castlediary.data.DiaryMediaRelation
 import io.github.tsuiwiki.castlediary.data.LegacyRaw
 import io.github.tsuiwiki.castlediary.data.MediaAsset
@@ -57,6 +58,7 @@ class V2Migrator(
         // 导出时统一写进 diaries 数组（text 保留），保持 v2 兼容。
         val allDiaries = db.diaryDao().observeAllForExport()
         val mediaSet = HashSet<String>()
+        val diaryDateById = allDiaries.associate { it.id to it.date }
 
         for (e in allDiaries) {
             diaries.put(JSONObject().apply {
@@ -65,6 +67,11 @@ class V2Migrator(
                 put("mood", "")
                 put("text", e.text)
                 put("by", e.by)
+                // 往返必需：标题/发生时间/类型/记录块 payload（网页版忽略多余字段）
+                put("title", e.title ?: "")
+                put("happenedAt", e.happenedAt ?: "")
+                put("entryKind", e.entryKind)
+                put("payload", e.payload)
                 put("createdAt", e.createdAt)
                 put("updatedAt", e.updatedAt)
             })
@@ -77,6 +84,8 @@ class V2Migrator(
                 put("id", "ds-" + s.date)
                 put("date", s.date)
                 put("mood", s.mood)
+                put("energyState", s.energyState)
+                put("note", s.note)
             })
         }
 
@@ -97,9 +106,11 @@ class V2Migrator(
         for (r in allRels) {
             photos.put(JSONObject().apply {
                 put("id", "ph-" + r.diaryId + "-" + r.mediaId)
-                put("date", "")
+                put("date", diaryDateById[r.diaryId] ?: "")
                 put("note", "")
                 put("imageId", r.mediaId)
+                // 往返必需：关系还原用；网页版相册按 date 展示，忽略多余字段
+                put("diaryId", r.diaryId)
             })
         }
 
@@ -134,6 +145,7 @@ class V2Migrator(
     data class ImportReport(
         val diariesImported: Int,
         val mediaImported: Int,
+        val photosLinked: Int,
         val legacyCollections: Int,
         val legacyItems: Int,
         val warnings: List<String>,
@@ -161,15 +173,15 @@ class V2Migrator(
         val diariesArr = root.optJSONArray("diaries") ?: JSONArray()
         for (i in 0 until diariesArr.length()) {
             val o = diariesArr.getJSONObject(i)
-            db.diaryDao().upsert(io.github.tsuiwiki.castlediary.data.DiaryEntry(
+            db.diaryDao().upsert(DiaryEntry(
                 id = o.optString("id", "imp-" + i),
                 date = o.optString("date"),
-                happenedAt = o.optString("createdAt").ifBlank { null },
-                title = "",
+                happenedAt = o.optString("happenedAt").ifBlank { o.optString("createdAt").ifBlank { null } },
+                title = o.optString("title"),
                 text = o.optString("text"),
                 by = o.optString("by"),
-                entryKind = "migrated",
-                payload = "{}",
+                entryKind = o.optString("entryKind").ifBlank { "migrated" },
+                payload = o.optString("payload").ifBlank { "{}" },
                 createdAt = o.optString("createdAt"),
                 updatedAt = o.optString("updatedAt"),
             ))
@@ -183,8 +195,8 @@ class V2Migrator(
             db.dailySummaryDao().upsert(io.github.tsuiwiki.castlediary.data.DailySummary(
                 date = o.optString("date"),
                 mood = o.optString("mood"),
-                energyState = "",
-                note = "",
+                energyState = o.optString("energyState"),
+                note = o.optString("note"),
                 createdAt = nowIso(),
                 updatedAt = nowIso(),
             ))
@@ -206,7 +218,43 @@ class V2Migrator(
             mediaImported++
         }
 
-        // 4. LegacyRaw 兜底：17 集合原样保留
+        // 4. 照片关系：native 备份用 diaryId 还原；网页版照片只有日期 → 合成「照片」条目挂住
+        var photosLinked = 0
+        val photosArr = root.optJSONArray("photos") ?: JSONArray()
+        for (i in 0 until photosArr.length()) {
+            val o = photosArr.getJSONObject(i)
+            val imageId = o.optString("imageId")
+            if (imageId.isBlank()) continue
+            if (mediaDao.byId(imageId) == null) { warnings.add("照片 $imageId 的媒体缺失，已跳过"); continue }
+            val diaryId = o.optString("diaryId").ifBlank {
+                val rawId = o.optString("id")
+                if (rawId.startsWith("ph-")) rawId.removePrefix("ph-").substringBeforeLast('-') else ""
+            }
+            if (diaryId.isNotBlank() && db.diaryDao().byId(diaryId) != null) {
+                relationDao.upsert(DiaryMediaRelation(diaryId, imageId, i))
+                photosLinked++
+            } else {
+                val date = o.optString("date")
+                if (date.isBlank()) { warnings.add("照片 $imageId 没有可关联的日记或日期，已跳过"); continue }
+                val syntheticId = "imp-photo-" + o.optString("id", imageId)
+                db.diaryDao().upsert(DiaryEntry(
+                    id = syntheticId,
+                    date = date,
+                    happenedAt = null,
+                    title = "",
+                    text = o.optString("note").ifBlank { "记了一张照片" },
+                    by = "",
+                    entryKind = "photo",
+                    payload = JSONObject().put("mediaId", imageId).toString(),
+                    createdAt = nowIso(),
+                    updatedAt = nowIso(),
+                ))
+                relationDao.upsert(DiaryMediaRelation(syntheticId, imageId, 0))
+                photosLinked++
+            }
+        }
+
+        // 5. LegacyRaw 兜底：17 集合原样保留
         var legacyCollections = 0
         var legacyItems = 0
         for (collection in LEGACY_COLLECTIONS) {
@@ -224,7 +272,7 @@ class V2Migrator(
             }
         }
 
-        ImportReport(diariesImported, mediaImported, legacyCollections, legacyItems, warnings)
+        ImportReport(diariesImported, mediaImported, photosLinked, legacyCollections, legacyItems, warnings)
     }
 
     // ---------- 工具 ----------

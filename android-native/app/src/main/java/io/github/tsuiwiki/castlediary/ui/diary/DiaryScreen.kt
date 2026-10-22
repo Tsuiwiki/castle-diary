@@ -1,6 +1,7 @@
 package io.github.tsuiwiki.castlediary.ui.diary
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -25,10 +26,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -159,7 +166,11 @@ private fun DateHeader(date: String, childName: String, birthday: String, summar
                 fontSize = 12.sp,
                 fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
                 color = if (on) Color.White else INK2,
-                modifier = Modifier.background(if (on) BRAND else Color.Transparent, MaterialTheme.shapes.small).padding(horizontal = 9.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .clip(MaterialTheme.shapes.small)
+                    .clickable { onMood(if (on) "" else m) }
+                    .background(if (on) BRAND else Color.Transparent, MaterialTheme.shapes.small)
+                    .padding(horizontal = 9.dp, vertical = 6.dp),
             )
         }
     }
@@ -198,10 +209,23 @@ private fun EntryRow(e: io.github.tsuiwiki.castlediary.data.DiaryEntry, vm: Diar
     val blocks = io.github.tsuiwiki.castlediary.data.payloadToBlocks(e.payload)
 
     // photo 记录：加载关联媒体文件，用拍立得卡片渲染（P1-C）
-    val photos by androidx.compose.runtime.produceState<List<java.io.File>>(emptyList(), e.id) {
+    val photos by produceState<List<java.io.File>>(emptyList(), e.id) {
         value = if (e.entryKind == "photo") {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.photosForEntry(e.id) }
         } else emptyList()
+    }
+
+    // 「她说」录音：加载关联音频文件，可就地播放
+    val audioFiles by produceState<List<java.io.File>>(emptyList(), e.id) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.audioForEntry(e.id) }
+    }
+    var player by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
+    var playingId by remember { mutableStateOf<String?>(null) }
+    DisposableEffect(e.id) {
+        onDispose {
+            player?.release()
+            player = null
+        }
     }
 
     // 每条记录呈现为一张日记小纸片（纸张质感 P1-B）：暖纸色底+横线纹理+左侧虚线装订边
@@ -234,6 +258,45 @@ private fun EntryRow(e: io.github.tsuiwiki.castlediary.data.DiaryEntry, vm: Diar
                             caption = e.text,
                             index = idx,
                             modifier = Modifier.width(150.dp),
+                        )
+                    }
+                }
+            }
+            // 「她说」录音播放
+            if (audioFiles.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    audioFiles.forEach { file ->
+                        val playing = playingId == file.absolutePath
+                        Text(
+                            if (playing) "■ 停止" else "▶ 听录音",
+                            fontSize = 13.sp,
+                            color = StickerPalette.Speech.fg,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .clickable {
+                                    if (playing) {
+                                        player?.release()
+                                        player = null
+                                        playingId = null
+                                    } else {
+                                        player?.release()
+                                        runCatching {
+                                            val p = android.media.MediaPlayer()
+                                            p.setDataSource(file.absolutePath)
+                                            p.setOnCompletionListener { it.release(); player = null; playingId = null }
+                                            p.prepare()
+                                            p.start()
+                                            player = p
+                                            playingId = file.absolutePath
+                                        }
+                                    }
+                                }
+                                .background(StickerPalette.Speech.bg, MaterialTheme.shapes.small)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
                         )
                     }
                 }

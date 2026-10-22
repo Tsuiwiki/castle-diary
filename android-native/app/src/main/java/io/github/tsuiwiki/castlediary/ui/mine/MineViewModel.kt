@@ -39,7 +39,8 @@ class MineViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             try {
                 val report = migrator.import(json)
-                _importReport.value = "导入成功：日记 ${report.diariesImported} 条，媒体 ${report.mediaImported} 个，旧数据 ${report.legacyItems} 条（${report.legacyCollections} 个集合）"
+                val warn = if (report.warnings.isNotEmpty()) "；提醒 ${report.warnings.size} 条" else ""
+                _importReport.value = "导入成功：日记 ${report.diariesImported} 条，照片关联 ${report.photosLinked} 个，媒体 ${report.mediaImported} 个，旧数据 ${report.legacyItems} 条$warn"
                 onDone(report)
             } catch (e: Exception) {
                 _importReport.value = "导入失败：${e.message}"

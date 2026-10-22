@@ -101,9 +101,14 @@ private fun CastleApp(
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val json = pendingExport
         if (uri != null && json != null) {
-            runCatching {
+            val ok = runCatching {
                 context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
-            }
+            }.isSuccess
+            android.widget.Toast.makeText(
+                context,
+                if (ok) "备份已导出" else "备份写入失败，请重试",
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
         }
         pendingExport = null
     }
@@ -115,7 +120,15 @@ private fun CastleApp(
                 context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
             }.getOrNull()
             if (text != null) mineVm.import(text) { }
+            else android.widget.Toast.makeText(context, "备份文件读取失败", android.widget.Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // 写一页草稿：进编辑器时载入，输入防抖落盘（DraftStore），显式保存后清空
+    val draftStore = remember { io.github.tsuiwiki.castlediary.data.DraftStore(context.applicationContext) }
+    var draftInit by remember { mutableStateOf(io.github.tsuiwiki.castlediary.data.DraftStore.Draft("", "", "[]")) }
+    androidx.compose.runtime.LaunchedEffect(overlay) {
+        if (overlay == Overlay.Write) draftInit = draftStore.load()
     }
 
     // 照片贴纸：Photo Picker → 存媒体 → 建一条 photo 记录
@@ -123,17 +136,22 @@ private fun CastleApp(
     val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
             scope.launch {
-                runCatching {
-                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
+                val saved = runCatching {
+                    val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: throw java.io.IOException("读不到选中的照片")
                     val id = java.util.UUID.randomUUID().toString()
-                    val stored = io.github.tsuiwiki.castlediary.media.MediaStore(context).save(id, io.github.tsuiwiki.castlediary.media.MediaStore.Kind.IMAGE, bytes, "image/jpeg")
+                    val stored = io.github.tsuiwiki.castlediary.media.MediaStore(context).save(id, io.github.tsuiwiki.castlediary.media.MediaStore.Kind.IMAGE, bytes, mime)
                     val now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
                     io.github.tsuiwiki.castlediary.data.CastleDatabase.get(context).mediaDao().upsert(
-                        io.github.tsuiwiki.castlediary.data.MediaAsset(id, "image", stored.relativePath, "image/jpeg", stored.sizeBytes, stored.sha256, now)
+                        io.github.tsuiwiki.castlediary.data.MediaAsset(id, "image", stored.relativePath, mime, stored.sizeBytes, stored.sha256, now)
                     )
                     io.github.tsuiwiki.castlediary.data.CastleDatabase.get(context).relationDao().upsert(
                         io.github.tsuiwiki.castlediary.data.DiaryMediaRelation(vm.savePhotoEntry(currentDate, id, now), id, 0)
                     )
+                }
+                if (saved.isFailure) {
+                    android.widget.Toast.makeText(context, "照片没存上，请重试", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -169,7 +187,7 @@ private fun CastleApp(
                     onWrite = { overlay = Overlay.Write },
                     onQuickRecord = { kind -> overlay = Overlay.Quick(kind) },
                 )
-                Tab.MEMORY -> MemoryScreen(modifier = contentModifier, vm = vm, onOpenDay = { date -> tab = Tab.DIARY })
+                Tab.MEMORY -> MemoryScreen(modifier = contentModifier, vm = vm, onOpenDay = { date -> vm.setDate(date); tab = Tab.DIARY })
                 Tab.COLLECTIONS -> {
                     Column(modifier = contentModifier) {
                         // 子 tab
@@ -187,7 +205,7 @@ private fun CastleApp(
                         }
                         io.github.tsuiwiki.castlediary.ui.collection.CollectionScreen(
                             type = collectionSub,
-                            onOpenDay = { date -> tab = Tab.DIARY },
+                            onOpenDay = { date -> vm.setDate(date); tab = Tab.DIARY },
                         )
                     }
                 }
@@ -206,10 +224,17 @@ private fun CastleApp(
             }
             Overlay.Write -> WritePageScreen(
                 modifier = contentModifier,
+                initialTitle = draftInit.title,
+                initialText = draftInit.text,
+                initialBlocks = io.github.tsuiwiki.castlediary.data.payloadToBlocks(draftInit.blocks),
                 onBack = { overlay = Overlay.None },
                 onSave = { result ->
                     vm.savePage(currentDate, result.title, result.text, result.blocks)
+                    scope.launch { draftStore.clear() }
                     overlay = Overlay.None
+                },
+                onDraftChanged = { t, x, blocks ->
+                    scope.launch { draftStore.save(t, x, io.github.tsuiwiki.castlediary.data.blocksToPayload(blocks)) }
                 },
             )
             is Overlay.Quick -> {
@@ -225,9 +250,28 @@ private fun CastleApp(
                         kind = o.kind,
                         onCancel = { overlay = Overlay.None },
                         onSave = { q ->
-                            val text = if (q.note.isBlank()) q.content else "${q.content}，${q.note}"
-                            vm.saveEntry(currentDate, text, q.kind, payload = q.payload)
                             overlay = Overlay.None
+                            scope.launch {
+                                val text = listOf(q.content, q.note).map { it.trim() }.filter { it.isNotBlank() }
+                                    .joinToString("，").ifBlank { if (q.audio != null) "录了一段话" else "" }
+                                val entryId = vm.saveEntryWithId(currentDate, text, q.kind, payload = q.payload)
+                                q.audio?.let { file ->
+                                    val ok = runCatching {
+                                        val bytes = file.readBytes()
+                                        val id = java.util.UUID.randomUUID().toString()
+                                        val stored = io.github.tsuiwiki.castlediary.media.MediaStore(context).save(id, io.github.tsuiwiki.castlediary.media.MediaStore.Kind.AUDIO, bytes, "audio/mp4")
+                                        val now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                                        io.github.tsuiwiki.castlediary.data.CastleDatabase.get(context).mediaDao().upsert(
+                                            io.github.tsuiwiki.castlediary.data.MediaAsset(id, "audio", stored.relativePath, "audio/mp4", stored.sizeBytes, stored.sha256, now)
+                                        )
+                                        io.github.tsuiwiki.castlediary.data.CastleDatabase.get(context).relationDao().upsert(
+                                            io.github.tsuiwiki.castlediary.data.DiaryMediaRelation(entryId, id, 0)
+                                        )
+                                        file.delete()
+                                    }.isSuccess
+                                    if (!ok) android.widget.Toast.makeText(context, "录音没存上，请重试", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         },
                     )
                 }

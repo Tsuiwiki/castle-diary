@@ -59,24 +59,44 @@ class DiaryViewModel(db: CastleDatabase, context: android.content.Context) : Vie
         payload: String = "",
         by: String = "",
     ) {
-        viewModelScope.launch {
-            val id = java.util.UUID.randomUUID().toString()
-            val now = now()
-            diaryDao.upsert(
-                DiaryEntry(
-                    id = id,
-                    date = date,
-                    happenedAt = now,
-                    title = title,
-                    text = text,
-                    by = by,
-                    entryKind = entryKind,
-                    payload = payload,
-                    createdAt = now,
-                    updatedAt = now,
-                )
+        viewModelScope.launch { saveEntryInternal(date, text, entryKind, title, payload, by) }
+    }
+
+    /** 同 saveEntry，但同步返回新条目 id（调用方要继续挂媒体关系时用） */
+    suspend fun saveEntryWithId(
+        date: String,
+        text: String,
+        entryKind: String,
+        title: String = "",
+        payload: String = "",
+        by: String = "",
+    ): String = saveEntryInternal(date, text, entryKind, title, payload, by)
+
+    private suspend fun saveEntryInternal(
+        date: String,
+        text: String,
+        entryKind: String,
+        title: String = "",
+        payload: String = "",
+        by: String = "",
+    ): String {
+        val id = java.util.UUID.randomUUID().toString()
+        val now = now()
+        diaryDao.upsert(
+            DiaryEntry(
+                id = id,
+                date = date,
+                happenedAt = now,
+                title = title,
+                text = text,
+                by = by,
+                entryKind = entryKind,
+                payload = payload,
+                createdAt = now,
+                updatedAt = now,
             )
-        }
+        )
+        return id
     }
 
     /** 保存一篇日记（正文 + 记录块合并，payload 存块数组） */
@@ -108,10 +128,16 @@ class DiaryViewModel(db: CastleDatabase, context: android.content.Context) : Vie
     }
 
     /** 某条 diary entry 关联的媒体文件（拍立得渲染用），按 sortOrder 排序 */
-    suspend fun photosForEntry(entryId: String): List<java.io.File> {
+    suspend fun photosForEntry(entryId: String): List<java.io.File> = mediaForEntry(entryId, "image")
+
+    /** 某条 diary entry 关联的录音文件（「她说」播放用） */
+    suspend fun audioForEntry(entryId: String): List<java.io.File> = mediaForEntry(entryId, "audio")
+
+    private suspend fun mediaForEntry(entryId: String, kind: String): List<java.io.File> {
         val relations = relationDao.byDiaryId(entryId)
         return relations.sortedBy { it.sortOrder }.mapNotNull { rel ->
-            mediaDao.byId(rel.mediaId)?.let { mediaStore.resolve(it.relativePath) }
+            val asset = mediaDao.byId(rel.mediaId)
+            if (asset?.kind == kind) mediaStore.resolve(asset.relativePath) else null
         }.filter { it.exists() }
     }
 
