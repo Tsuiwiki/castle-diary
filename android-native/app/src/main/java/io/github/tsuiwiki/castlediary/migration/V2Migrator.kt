@@ -12,13 +12,12 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.security.MessageDigest
 import java.util.Base64
 
 /**
  * v2 备份导入导出（M9）：与网页版 castle-books v2 格式严格互通。
- * 导出：Room（核心表 + LegacyRaw 重组）+ 媒体 base64 内联 + SHA-1 校验和。
- * 导入：校验 → 媒体落盘 → 核心入库 + LegacyRaw 兜底 → 完整性报告。
+ * 导出：Room（核心表 + LegacyRaw 重组）+ 媒体 base64 内联。
+ * 导入：校验 → 媒体落盘 → 核心入库 + 照片关系还原 + LegacyRaw 兜底 → 完整性报告。
  */
 class V2Migrator(
     private val context: Context,
@@ -57,7 +56,6 @@ class V2Migrator(
         // 注意：MVP 的 DiaryEntry 承载了原 PWA 的 diaries + 五种贴纸记录；
         // 导出时统一写进 diaries 数组（text 保留），保持 v2 兼容。
         val allDiaries = db.diaryDao().observeAllForExport()
-        val mediaSet = HashSet<String>()
         val diaryDateById = allDiaries.associate { it.id to it.date }
 
         for (e in allDiaries) {
@@ -133,10 +131,8 @@ class V2Migrator(
             if (!root.has(c)) root.put(c, JSONArray())
         }
 
-        val json = root.toString()
-        val checksum = sha1(json)
-        // 网页版 checksum 是放在导出时计算的；这里把 checksum 附加到顶层（dataCheck 读取）
-        root.put("checksum", checksum)
+        // 不附加 checksum：网页版校验和是 djb2 且基于 JS 序列化键序，Kotlin 无法复现，
+        // 写了反而被网页版导入时判「校验和不一致」拒绝（v2 有 checksum 就必验）。
         root.toString()
     }
 
@@ -285,10 +281,6 @@ class V2Migrator(
         val mime = meta.substringBefore(';').ifBlank { "application/octet-stream" }
         return mime to dataUrl.substring(comma + 1)
     }
-
-    private fun sha1(s: String): String =
-        MessageDigest.getInstance("SHA-1").digest(s.toByteArray())
-            .joinToString("") { "%02x".format(it) }
 
     private fun nowIso(): String = java.time.LocalDateTime.now().toString()
 
