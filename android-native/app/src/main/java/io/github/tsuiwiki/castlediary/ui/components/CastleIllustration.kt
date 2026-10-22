@@ -110,7 +110,8 @@ fun CastleIllustration(
             .semantics { contentDescription = "$name 的城堡：三层城墙、两座塔楼、七块城垛砖、院子里三株小树${seasonLabel(season)}" },
     ) {
         val s = size.width / VB_W
-        scale(s, s) {
+        // 绕原点缩放：draw 坐标直接用 320 宽 viewBox 单位，默认 pivot=center 会错位
+        scale(s, s, pivot = Offset.Zero) {
             drawSky(season, skyTop)
             drawGroundAndRiver(season)
             repeat(BUSHES) { drawBush(it, season) }
